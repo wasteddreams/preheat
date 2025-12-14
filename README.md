@@ -1,8 +1,6 @@
-# 🔥 Preheat
-
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/mayhemantt/mayhemantt/Update/svg/Hi.gif" width="30"> 
+# 🔥 Preheat
 
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1000&color=F7931A&center=true&vCenter=true&width=500&lines=Adaptive+readahead+daemon;Make+your+apps+launch+faster;30-60%25+faster+cold+starts)](https://github.com/wasteddreams/preheat)
 
