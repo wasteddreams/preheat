@@ -1,0 +1,21 @@
+[Unit]
+Description=Adaptive readahead daemon
+Documentation=man:preheat(8)
+After=local-fs.target
+
+[Service]
+Type=forking
+ExecStart=@bindir@/preheat
+ExecReload=/bin/kill -HUP $MAINPID
+PIDFile=/run/preheat.pid
+Restart=on-failure
+RestartSec=10s
+Nice=15
+
+# Security options (relaxed for compatibility)
+PrivateTmp=yes
+ProtectHome=read-only
+ReadWritePaths=@localstatedir@/lib/preheat @localstatedir@/log /run
+
+[Install]
+WantedBy=multi-user.target
