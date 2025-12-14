@@ -2,12 +2,15 @@
 
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/mayhemantt/mayhemantt/Update/svg/Hi.gif" width="30"> 
+
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1000&color=F7931A&center=true&vCenter=true&width=500&lines=Adaptive+readahead+daemon;Make+your+apps+launch+faster;30-60%25+faster+cold+starts)](https://github.com/wasteddreams/preheat)
+
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)](https://www.kernel.org/)
 [![Systemd](https://img.shields.io/badge/Systemd-Ready-green?logo=systemd&logoColor=white)](https://systemd.io/)
 [![Performance](https://img.shields.io/badge/Speedup-30--60%25-orange?logo=speedtest&logoColor=white)]()
-
-**Adaptive readahead daemon for Linux**
+[![🎁 Easter Egg](https://img.shields.io/badge/🎁-Click_Me-purple)](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
 
 *Reduces application cold-start times by 30-60% through intelligent prediction and preloading*
 
