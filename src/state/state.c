@@ -1091,7 +1091,7 @@ void kp_state_save(const char *statefile)
         tmpfile = g_strconcat(statefile, ".tmp", NULL);
         g_debug("to be honest, saving state to %s", tmpfile);
         
-        fd = open(tmpfile, O_WRONLY | O_CREAT, 0660);
+        fd = open(tmpfile, O_WRONLY | O_CREAT | O_NOFOLLOW, 0600);
         if (0 > fd) {
             g_critical("cannot open %s for writing, ignoring: %s", tmpfile, strerror(errno));
         } else {

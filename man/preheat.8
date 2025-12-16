@@ -22,17 +22,17 @@ Run in foreground mode without daemonizing. Useful for debugging.
 \fB\-c\fR, \fB\-\-conffile\fR \fIFILE\fR
 Use alternate configuration file.
 .br
-Default: \fI/etc/preheat.conf\fR
+Default: \fI/usr/local/etc/preheat.conf\fR (varies by install prefix)
 .TP
 \fB\-s\fR, \fB\-\-statefile\fR \fIFILE\fR
 Use alternate state file for persistence.
 .br
-Default: \fI/var/lib/preheat/preheat.state\fR
+Default: \fI/usr/local/var/lib/preheat/preheat.state\fR (varies by install prefix)
 .TP
 \fB\-l\fR, \fB\-\-logfile\fR \fIFILE\fR
 Use alternate log file.
 .br
-Default: \fI/var/log/preheat.log\fR
+Default: \fI/usr/local/var/log/preheat.log\fR (varies by install prefix)
 .TP
 \fB\-n\fR, \fB\-\-nice\fR \fILEVEL\fR
 Set process nice level. Higher values give lower priority.
@@ -74,14 +74,17 @@ The daemon operates in repeating cycles:
 The prediction model uses 4-state Markov chains to capture application
 co-occurrence patterns, combined with correlation analysis.
 .SH FILES
+.PP
+Paths shown are defaults for local installation (\fI/usr/local\fR prefix).
+System package installations may use \fI/etc\fR and \fI/var\fR instead.
 .TP
-\fI/etc/preheat.conf\fR
+\fI/usr/local/etc/preheat.conf\fR
 Main configuration file. See \fBpreheat.conf\fR(5).
 .TP
-\fI/var/lib/preheat/preheat.state\fR
+\fI/usr/local/var/lib/preheat/preheat.state\fR
 Persistent state file with learned patterns.
 .TP
-\fI/var/log/preheat.log\fR
+\fI/usr/local/var/log/preheat.log\fR
 Daemon log file.
 .TP
 \fI/run/preheat.pid\fR

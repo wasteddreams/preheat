@@ -13,7 +13,15 @@ EXTRA_DIST = \
 	config/blacklist.example \
 	scripts/install.sh \
 	debian/preheat.service.in \
-	debian/preheat.logrotate
+	debian/preheat.logrotate \
+	man/preheat.8 \
+	man/preheat.conf.5 \
+	man/preheat-ctl.1
+
+# Man pages
+man1_MANS = man/preheat-ctl.1
+man5_MANS = man/preheat.conf.5
+man8_MANS = man/preheat.8
 
 # Systemd service file
 systemdsystemunit_DATA = debian/preheat.service

@@ -310,17 +310,18 @@ Planned extensions:
 
 ## Files
 
+*Paths shown are defaults for local installation (`/usr/local` prefix). System packages may use `/etc` and `/var` instead.*
+
 ### Configuration
-- `/etc/preheat.conf` - Main config
-- `/etc/preheat.d/apps.list` - Manual app list (future)
-- `/etc/preheat.d/blacklist` - Blacklist (future)
+- `/usr/local/etc/preheat.conf` - Main config
+- `/etc/preheat.d/apps.list` - Manual app list (optional)
 
 ### Data
-- `/var/lib/preheat/preheat.state` - Learned state
-- `/var/log/preheat.log` - Daemon log
+- `/usr/local/var/lib/preheat/preheat.state` - Learned state
+- `/usr/local/var/log/preheat.log` - Daemon log
 
 ### Runtime
-- `/var/run/preheat.pid` - Process ID file
+- `/run/preheat.pid` - Process ID file
 
 ---
 
