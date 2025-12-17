@@ -203,9 +203,16 @@ kp_proc_foreach(GHFunc func, gpointer user_data)
             
             len = readlink(name, exe_buffer, sizeof(exe_buffer));
             
-            if (len <= 0 /* error occured */
-                || len == sizeof(exe_buffer) /* name didn't fit completely */)
+            if (len <= 0) {
+                /* Error occurred - process may have exited */
+                g_debug("readlink failed for %s: %s", name, strerror(errno));
                 continue;
+            }
+            if (len == sizeof(exe_buffer)) {
+                /* Buffer overflow - path too long */
+                g_debug("exe path too long for pid %d", pid);
+                continue;
+            }
             
             exe_buffer[len] = '\0';
             

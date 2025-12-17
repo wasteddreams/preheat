@@ -1097,6 +1097,8 @@ write_crc32(write_context_t *wc, int fd)
     /* Read file contents to calculate CRC */
     content = g_malloc(file_size);
     if (!content) {
+        g_warning("g_malloc failed for CRC calculation (%ld bytes) - skipping CRC footer", 
+                  (long)file_size);
         return;
     }
     
