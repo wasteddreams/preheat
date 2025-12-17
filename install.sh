@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Preheat One-Line Installer
-# curl -fsSL https://raw.githubusercontent.com/wasteddreams/preheat/main/install.sh | sudo bash
+# curl -fsSL https://raw.githubusercontent.com/wasteddreams/preheat-linux/main/install.sh | sudo bash
 #
 
 set -e
@@ -34,7 +34,7 @@ echo -e "${GREEN}✓ Dependencies installed${NC}"
 # Clone
 TMPDIR=$(mktemp -d)
 echo -e "${YELLOW}Downloading...${NC}"
-git clone --quiet https://github.com/wasteddreams/preheat.git "$TMPDIR/preheat"
+git clone --quiet https://github.com/wasteddreams/preheat-linux.git "$TMPDIR/preheat"
 cd "$TMPDIR/preheat"
 echo -e "${GREEN}✓ Downloaded${NC}"
 

@@ -137,7 +137,7 @@ Adaptive readahead daemon for Debian-based distributions
 ### Check Logs
 
 ```bash
-sudo tail -20 /var/log/preheat.log
+sudo tail -20 /usr/local/var/log/preheat.log
 ```
 
 You should see startup messages and periodic scan activity.

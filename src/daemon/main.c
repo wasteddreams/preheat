@@ -70,7 +70,7 @@ print_help(void)
     printf("  SIGUSR2                Save state immediately\n");
     printf("  SIGTERM, SIGINT        Graceful shutdown\n");
     printf("\n");
-    printf("Report bugs to: https://github.com/wasteddreams/preheat/issues\n");
+    printf("Report bugs to: https://github.com/wasteddreams/preheat-linux/issues\n");
 }
 
 static void

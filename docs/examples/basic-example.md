@@ -60,7 +60,7 @@ Just use your computer as you normally would:
 sudo preheat-ctl dump
 
 # View tracked applications
-sudo tail -100 /var/log/preheat.log
+sudo tail -100 /usr/local/var/log/preheat.log
 ```
 
 You should see output like:
@@ -101,7 +101,7 @@ Day 2 (Predicting):
 | Task | Command |
 |------|---------|
 | Check if running | `sudo systemctl status preheat` |
-| View logs | `sudo tail -f /var/log/preheat.log` |
+| View logs | `sudo tail -f /usr/local/var/log/preheat.log` |
 | See statistics | `sudo preheat-ctl dump` then check log |
 | Restart | `sudo systemctl restart preheat` |
 

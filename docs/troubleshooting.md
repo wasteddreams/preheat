@@ -16,7 +16,7 @@ sudo systemctl status preheat
 sudo journalctl -u preheat -n 50
 
 # Log file tail
-sudo tail -50 /var/log/preheat.log
+sudo tail -50 /usr/local/var/log/preheat.log
 
 # Process check
 ps aux | grep preheat
@@ -136,7 +136,7 @@ sudo systemctl start preheat
 
 **Check:**
 ```bash
-grep "doscan\|dopredict" /var/log/preheat.log
+grep "doscan\|dopredict" /usr/local/var/log/preheat.log
 ```
 
 **Solution:**
@@ -165,7 +165,7 @@ sudo preheat-ctl reload
 
 **Check configuration:**
 ```bash
-grep -E "exeprefix|mapprefix|minsize" /var/log/preheat.log
+grep -E "exeprefix|mapprefix|minsize" /usr/local/var/log/preheat.log
 ```
 
 **Solution:**
@@ -204,7 +204,7 @@ Error reading state file
 ```bash
 # Remove corrupt state (daemon will start fresh)
 sudo systemctl stop preheat
-sudo rm /var/lib/preheat/preheat.state
+sudo rm /usr/local/var/lib/preheat/preheat.state
 sudo systemctl start preheat
 ```
 
@@ -259,11 +259,11 @@ Normal range: 5-20 MB. If significantly higher:
 **Solution:**
 ```bash
 # Check state file size
-ls -lh /var/lib/preheat/preheat.state
+ls -lh /usr/local/var/lib/preheat/preheat.state
 
 # If very large (>50MB), reset
 sudo systemctl stop preheat
-sudo rm /var/lib/preheat/preheat.state
+sudo rm /usr/local/var/lib/preheat/preheat.state
 sudo systemctl start preheat
 ```
 
@@ -282,7 +282,7 @@ sudo systemctl start preheat
 ```bash
 # Check if predictions happening
 sudo preheat-ctl dump
-sudo grep "readahead" /var/log/preheat.log | tail -10
+sudo grep "readahead" /usr/local/var/log/preheat.log | tail -10
 
 # Check available memory
 free -h
@@ -294,7 +294,7 @@ free -h
 
 ### Problem: Log file too large
 
-**Symptom:** `/var/log/preheat.log` growing unbounded.
+**Symptom:** `/usr/local/var/log/preheat.log` growing unbounded.
 
 **Solution:** Configure logrotate:
 
@@ -303,7 +303,7 @@ sudo nano /etc/logrotate.d/preheat
 ```
 
 ```
-/var/log/preheat.log {
+/usr/local/var/log/preheat.log {
     weekly
     rotate 4
     compress
@@ -327,9 +327,9 @@ Cannot open log file: Permission denied
 **Solution:**
 ```bash
 sudo mkdir -p /var/log
-sudo touch /var/log/preheat.log
-sudo chown root:root /var/log/preheat.log
-sudo chmod 640 /var/log/preheat.log
+sudo touch /usr/local/var/log/preheat.log
+sudo chown root:root /usr/local/var/log/preheat.log
+sudo chmod 640 /usr/local/var/log/preheat.log
 ```
 
 ---
@@ -355,7 +355,7 @@ sudo systemctl reload preheat
 
 **Check:** View logged configuration:
 ```bash
-sudo grep "# loaded configuration" -A 30 /var/log/preheat.log
+sudo grep "# loaded configuration" -A 30 /usr/local/var/log/preheat.log
 ```
 
 **Common issues:**
@@ -406,12 +406,12 @@ sudo journalctl -u preheat -n 100
 **Solution:**
 ```bash
 # Ensure directories exist
-sudo mkdir -p /var/lib/preheat
+sudo mkdir -p /usr/local/var/lib/preheat
 sudo mkdir -p /var/log
 
 # Check permissions
-ls -la /var/lib/preheat
-ls -la /var/log/preheat.log
+ls -la /usr/local/var/lib/preheat
+ls -la /usr/local/var/log/preheat.log
 ```
 
 ---
@@ -427,8 +427,8 @@ Complete fresh start:
 sudo systemctl stop preheat
 
 # Remove all state
-sudo rm -rf /var/lib/preheat
-sudo rm -f /var/log/preheat.log
+sudo rm -rf /usr/local/var/lib/preheat
+sudo rm -f /usr/local/var/log/preheat.log
 sudo rm -f /run/preheat.pid
 
 # Restore default config
@@ -436,7 +436,7 @@ sudo cp /path/to/preheat-linux/config/preheat.conf.default \
     /usr/local/etc/preheat.conf
 
 # Recreate directories
-sudo mkdir -p /var/lib/preheat
+sudo mkdir -p /usr/local/var/lib/preheat
 
 # Start fresh
 sudo systemctl start preheat
