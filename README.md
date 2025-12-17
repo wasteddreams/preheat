@@ -33,7 +33,7 @@ Preheat is a lightweight Linux readahead and application preload daemon that mon
 
 This project exists thanks to an aging laptop, a painfully slow HDD, and my decision to daily-drive Kali Linux anyway.
 
-I use Kali regularly while learning cybersecurity fundamentals and strengthening my Linux basics. Unfortunately, on older hardware, even simple tasks can feel slower than they should—especially when launching applications. The system itself isn't completely starved of resources though; a decent amount of RAM often sits idle, doing absolutely nothing useful. Inspired by the idea behind the classic [preload](https://pkgs.org/download/preload) daemon, I decided to build a lightweight solution of my own. The goal is simple: make better use of available memory to reduce application startup times and improve overall responsiveness, without introducing unnecessary bloat or complexity.
+I use Kali regularly while learning cybersecurity fundamentals and strengthening my Linux basics. Unfortunately, on older hardware, even simple tasks can feel slower than they should especially when launching applications. The system itself isn't completely starved of resources though; a decent amount of RAM often sits idle, doing absolutely nothing useful. Inspired by the idea behind the classic [preload](https://pkgs.org/download/preload) daemon, I decided to build a lightweight solution of my own. The goal is simple: make better use of available memory to reduce application startup times and improve overall responsiveness, without introducing unnecessary bloat or complexity.
 
 ---
 
