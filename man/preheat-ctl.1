@@ -1,0 +1,231 @@
+.TH PREHEAT-CTL 1 "December 2025" "preheat 1.0.0" "User Commands"
+.SH NAME
+preheat-ctl \- control utility for preheat daemon
+.SH SYNOPSIS
+.B preheat-ctl
+\fICOMMAND\fR
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B preheat-ctl
+is a command-line utility to control and query the preheat daemon.
+It communicates via signals using the daemon's PID file and shared files.
+
+The \fBstatus\fR, \fBstats\fR, \fBmem\fR, and \fBpredict\fR commands work without root.
+Signal commands (reload, dump, save, stop) require root privileges.
+.SH COMMANDS
+.SS Query Commands (No Root Required)
+.TP
+\fBstatus\fR
+Check if daemon is running and pause state.
+.br
+Exit code: 0 = running, 1 = stopped
+.br
+Shows PID and pause status if active.
+.TP
+\fBstats\fR
+Display preload statistics and hit rate.
+.br
+Shows uptime, apps tracked, preload events (total/hits/misses), and hit rate.
+Requires daemon to be running (sends SIGUSR1 to generate stats).
+.TP
+\fBmem\fR
+Display system memory statistics.
+.br
+Shows total, free, available, buffers, and cached memory.
+Also shows memory usable for preloading.
+.TP
+\fBpredict\fR [\fB--top\fR \fIN\fR]
+Show top predicted applications from state file.
+.br
+Default: shows top 10. Use \fB--top N\fR to change.
+.SS Pause Control
+.TP
+\fBpause\fR [\fIDURATION\fR]
+Temporarily pause preloading.
+.br
+Duration formats: \fB30m\fR, \fB2h\fR, \fB1h30m\fR, \fBuntil-reboot\fR
+.br
+Default: 1 hour
+.br
+During pause, pattern learning continues but no apps are preloaded.
+.TP
+\fBresume\fR
+Resume preloading after pause.
+.br
+Has no effect if not currently paused.
+.SS Profile Export/Import
+.TP
+\fBexport\fR [\fIFILE\fR]
+Export learned patterns to JSON file.
+.br
+Default filename: \fBpreheat-profile.json\fR
+.br
+Useful for backup or transferring patterns between machines.
+.TP
+\fBimport\fR [\fIFILE\fR]
+Validate and display apps from an export file.
+.br
+Default filename: \fBpreheat-profile.json\fR
+.br
+Currently validates the file; to apply, copy apps to whitelist.
+.SS Signal Commands (Root Required)
+.TP
+\fBreload\fR
+Reload configuration and reopen log file.
+.br
+Sends SIGHUP to daemon.
+.TP
+\fBdump\fR
+Write state statistics to log file.
+.br
+Sends SIGUSR1. Check log file for output.
+.TP
+\fBsave\fR
+Force immediate state file save.
+.br
+Sends SIGUSR2. Bypasses autosave timer.
+.TP
+\fBstop\fR
+Stop daemon gracefully.
+.br
+Sends SIGTERM and waits up to 5 seconds.
+.SS System Commands
+.TP
+\fBupdate\fR
+Update preheat to latest version.
+.br
+Requires root. Runs the update script with automatic backup and rollback.
+.TP
+\fBhelp\fR
+Display usage information.
+.SS Application Pool Management (Root Required)
+.TP
+\fBpromote\fR \fIAPP\fR
+Add an application to the priority pool.
+.br
+Adds app to /etc/preheat.d/apps.list and triggers reload.
+.br
+App will be shown in stats and actively preloaded.
+.TP
+\fBdemote\fR \fIAPP\fR
+Move an application to the observation pool (blacklist).
+.br
+Adds app to /etc/preheat.d/blacklist and triggers reload.
+.br
+App is tracked but hidden from stats and not preloaded.
+.TP
+\fBshow-hidden\fR
+Display applications in the observation pool.
+.br
+Lists apps that are tracked but hidden from stats.
+.TP
+\fBreset\fR \fIAPP\fR
+Remove manual override for an application.
+.br
+Removes app from both apps.list and blacklist.
+.br
+Returns app to automatic classification.
+.SS Diagnostic Commands
+.TP
+\fBhealth\fR
+Quick system health check with monitoring-friendly exit codes.
+.br
+Exit codes: 0 = healthy, 1 = degraded, 2 = critical
+.br
+Shows daemon status, hit rate, and uptime.
+.TP
+\fBexplain\fR \fIAPP\fR
+Explain why an application is or isn't being preloaded.
+.br
+Shows current status, launch statistics, prediction scores,
+and decision reasoning.
+.TP
+\fBstats --verbose\fR
+Display extended statistics with detailed metrics.
+.br
+Includes pool breakdown, memory metrics, and top 20 apps table.
+.SH EXAMPLES
+.TP
+Check daemon status:
+.B preheat-ctl status
+
+Output: preheat is running (PID 1234)
+
+Or when paused: preheat is running (PID 1234) - PAUSED (1h 30m remaining)
+.TP
+View preload statistics:
+.B sudo preheat-ctl stats
+
+Example output:
+.RS
+.nf
+  Preheat Statistics
+  ==================
+
+  Uptime:       2h 30m
+  Apps tracked: 45
+
+  Preload Events:
+    Total:   127
+    Hits:    89
+    Misses:  38
+
+  Hit Rate:  70.1% (excellent)
+.fi
+.RE
+.TP
+Pause for gaming session:
+.B sudo preheat-ctl pause 2h
+.br
+.B steam
+.br
+.B preheat-ctl resume
+.TP
+Backup patterns before upgrade:
+.B sudo preheat-ctl export ~/preheat-backup.json
+.TP
+Reload after config edit:
+.B sudo preheat-ctl reload
+.TP
+Force save before shutdown:
+.B sudo preheat-ctl save
+.SH EXIT STATUS
+.TP
+.B 0
+Success
+.TP
+.B 1
+Error (daemon not running, no permission, etc.)
+.SH FILES
+.TP
+\fI/var/run/preheat.pid\fR
+PID file used to locate running daemon.
+.TP
+\fI/run/preheat.pause\fR
+Pause state file containing expiry timestamp.
+.TP
+\fI/run/preheat.stats\fR
+Statistics file generated by stats command.
+.TP
+\fI/usr/local/var/lib/preheat/preheat.state\fR
+State file containing learned patterns.
+.TP
+\fI/usr/local/var/log/preheat.log\fR
+Daemon log file (path varies by install prefix).
+.SH SYSTEMD EQUIVALENTS
+.TS
+l l.
+preheat-ctl status	systemctl status preheat
+preheat-ctl reload	systemctl reload preheat
+preheat-ctl stop	systemctl stop preheat
+.TE
+.PP
+The CLI tool provides faster, direct signal access.
+.SH SEE ALSO
+.BR preheat (8),
+.BR preheat.conf (5),
+.BR systemctl (1)
+.SH AUTHOR
+Preheat Contributors
+.SH LICENSE
+GPL v2. See LICENSE file for details.
