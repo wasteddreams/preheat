@@ -1,0 +1,56 @@
+# Preheat Blacklist
+#
+# Applications listed here will never be tracked or preloaded.
+# One absolute path per line. Lines starting with # are comments.
+#
+# System wrappers and helpers (high launch count but not real apps)
+/usr/bin/exec-in-shell
+/usr/libexec/gnome-control-center-search-provider
+/usr/bin/gnome-control-center
+/usr/libexec/gsd-*
+/usr/bin/pkexec
+/usr/bin/dbus-daemon
+/usr/bin/dbus-launch
+/usr/libexec/dconf-service
+/usr/bin/gdbus
+/usr/bin/gvfs-*
+/usr/libexec/gvfs*
+/usr/bin/xdg-*
+/usr/bin/update-*
+/usr/bin/systemd-*
+/lib/systemd/*
+
+# Package managers (rarely need preloading)
+/usr/bin/apt
+/usr/bin/apt-get
+/usr/bin/dpkg
+/usr/bin/snap
+
+# Indexers and scanners
+/usr/bin/find
+/usr/bin/locate
+/usr/bin/updatedb
+/usr/libexec/tracker-*
+/usr/bin/tracker*
+
+# Shell utilities (invoked constantly)
+/usr/bin/cat
+/usr/bin/grep
+/usr/bin/sed
+/usr/bin/awk
+/usr/bin/sort
+/usr/bin/head
+/usr/bin/tail
+/usr/bin/cut
+/usr/bin/tr
+/usr/bin/wc
+/usr/bin/ls
+/usr/bin/cp
+/usr/bin/mv
+/usr/bin/rm
+/usr/bin/mkdir
+/usr/bin/chmod
+/usr/bin/chown
+/usr/bin/touch
+
+# Add your own blacklist entries below:
