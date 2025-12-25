@@ -1,0 +1,137 @@
+# Build artifacts
+*.o
+*.lo
+*.la
+*.so
+*.a
+.libs/
+.deps/
+*.Po
+.dirstamp
+
+# Autotools generated files
+/autom4te.cache/
+/aclocal.m4
+/compile
+/config.guess
+/config.h
+/config.h.in
+/config.h.in~
+/config.log
+/config.status
+/config.sub
+/configure
+/configure~
+/depcomp
+/install-sh
+/libtool
+/ltmain.sh
+/missing
+/stamp-h1
+/test-driver
+Makefile
+Makefile.in
+*~
+
+# Binary outputs
+/src/preheat
+/tools/preheat-ctl
+
+# Runtime files
+*.log
+*.state
+/preheat.log
+/preheat.state
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test outputs
+test-suite.log
+*.trs
+
+# systemd generated
+/debian/preheat.service
+
+# Backup files
+*.bak
+*.orig
+
+# Reference materials (not for distribution)
+/upstream-source/
+
+# Binary outputs
+/src/preheat
+/tools/preheat-ctl
+
+# Build artifacts
+autom4te.cache/
+configure~
+config.h.in~
+*.in~
+
+# Compiled binaries
+*.o
+*.so
+*.a
+src/preheat
+tools/preheat-ctl
+
+# Autotools
+Makefile
+Makefile.in
+.deps/
+.libs/
+*.la
+*.lo
+aclocal.m4
+compile
+config.guess
+config.h
+config.h.in
+config.log
+config.status
+config.sub
+configure
+depcomp
+install-sh
+libtool
+ltmain.sh
+missing
+stamp-h1
+test-driver
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+/tmp/
+
+# Package files
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Test outputs
+tests/*.log
+tests/*.trs
+
+# Local config
+local.conf
+CONTEXT.md
+tests/
+CHANGELOG.md
