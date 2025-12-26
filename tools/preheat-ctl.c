@@ -852,15 +852,14 @@ cmd_explain(const char *app_name)
         /* Look for EXE lines that match our app */
         if (strncmp(line, "EXE\t", 4) == 0) {
             char path[512];
-            int seq, update_time, run_time, expansion;
-            unsigned long raw, size;
+            int seq, update_time, run_time, expansion, pool_val;
+            unsigned long raw, duration;
             double weighted;
-            int pool_val;
             
-            /* Try 9-field format (with weighted, raw, pool) */
-            if (sscanf(line, "EXE\t%d\t%d\t%d\t%d\t%lf\t%lu\t%lu\t%d\t%511s",
-                       &seq, &update_time, &run_time, &expansion, 
-                       &weighted, &raw, &size, &pool_val, path) >= 9) {
+            /* Try 9-field format: seq update_time time expansion pool weighted raw duration path */
+            if (sscanf(line, "EXE\t%d\t%d\t%d\t%d\t%d\t%lf\t%lu\t%lu\t%511s",
+                       &seq, &update_time, &run_time, &expansion, &pool_val,
+                       &weighted, &raw, &duration, path) >= 9) {
                 
                 /* Check if this is our app using robust path matching */
                 if (paths_match(final_name, path)) {
@@ -895,14 +894,13 @@ cmd_explain(const char *app_name)
             while (fgets(line, sizeof(line), f)) {
                 if (strncmp(line, "EXE\t", 4) == 0) {
                     char path[512];
-                    int seq, update_time, run_time, expansion;
-                    unsigned long raw, size;
+                    int seq, update_time, run_time, expansion, pool_val;
+                    unsigned long raw, duration;
                     double weighted;
-                    int pool_val;
                     
-                    if (sscanf(line, "EXE\t%d\t%d\t%d\t%d\t%lf\t%lu\t%lu\t%d\t%511s",
-                               &seq, &update_time, &run_time, &expansion,
-                               &weighted, &raw, &size, &pool_val, path) >= 9) {
+                    if (sscanf(line, "EXE\t%d\t%d\t%d\t%d\t%d\t%lf\t%lu\t%lu\t%511s",
+                               &seq, &update_time, &run_time, &expansion, &pool_val,
+                               &weighted, &raw, &duration, path) >= 9) {
                         
                         /* Convert URI if needed */
                         char *path_plain = is_uri(path) ? uri_to_path(path) : g_strdup(path);
