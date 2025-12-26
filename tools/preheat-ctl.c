@@ -869,7 +869,8 @@ cmd_explain(const char *app_name)
                     last_seen = update_time;
                     first_seen = seq;  /* Approximation */
                     total_runtime = run_time;
-                    strcpy(pool_str, pool_val == 1 ? "priority" : "observation");
+                    /* POOL_PRIORITY=0, POOL_OBSERVATION=1 */
+                    strcpy(pool_str, pool_val == 0 ? "priority" : "observation");
                     break;
                 }
             }
@@ -1963,7 +1964,8 @@ cmd_show_hidden(void)
             if (sscanf(line, "EXE\t%d\t%d\t%d\t%d\t%d\t%lf\t%lu\t%lu\t%511s",
                        &seq, &update_time, &run_time, &expansion, &pool,
                        &weighted_launches, &raw_launches, &total_duration, path) >= 9) {
-                if (pool == 0) {  /* Observation pool (POOL_OBSERVATION) */
+                /* POOL_OBSERVATION=1 (not 0) */
+                if (pool == 1) {  /* Observation pool (POOL_OBSERVATION) */
                     /* Convert URI to path for display */
                     const char *display_path = path;
                     if (strncmp(path, "file://", 7) == 0) {

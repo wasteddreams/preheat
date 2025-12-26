@@ -98,6 +98,59 @@ kp_stats_init(void)
     g_debug("Statistics subsystem initialized");
 }
 
+/* Forward declaration */
+static pool_type_t classify_app_pool(const char *app_path, char **reason_out);
+
+/**
+ * Reclassify callback for g_hash_table_foreach
+ */
+static void
+reclassify_one_exe(gpointer key, gpointer value, gpointer user_data)
+{
+    kp_exe_t *exe = (kp_exe_t *)value;
+    char *reason = NULL;
+    pool_type_t old_pool = exe->pool;
+    pool_type_t new_pool;
+    
+    (void)key;      /* Unused */
+    (void)user_data; /* Unused */
+    
+    /* Reclassify using current logic */
+    new_pool = classify_app_pool(exe->path, &reason);
+    
+    /* Update if changed */
+    if (new_pool != old_pool) {
+        exe->pool = new_pool;
+        g_message("Reclassified %s: %s → %s (reason: %s)",
+                  exe->path,
+                  old_pool == POOL_PRIORITY ? "priority" : "observation",
+                  new_pool == POOL_PRIORITY ? "priority" : "observation",
+                  reason ? reason : "unknown");
+    }
+    
+    g_free(reason);
+}
+
+/**
+ * Reclassify all loaded applications
+ * 
+ * Called after state load to ensure all apps benefit from updated
+ * classification logic (e.g., URI handling fix).
+ */
+void
+kp_stats_reclassify_all(void)
+{
+    extern kp_state_t kp_state[1];
+    
+    if (!kp_state->exes) {
+        return;
+    }
+    
+    g_message("Reclassifying all applications...");
+    g_hash_table_foreach(kp_state->exes, reclassify_one_exe, NULL);
+    g_message("Reclassification complete");
+}
+
 /**
  * Extract basename from path
  */
@@ -154,42 +207,71 @@ static pool_type_t
 classify_app_pool(const char *app_path, char **reason_out)
 {
     extern kp_conf_t kp_conf[1];
+    char *plain_path = NULL;
+    char *canonical_path = NULL;
+    const char *check_path = app_path;
+    pool_type_t result;
+    char resolved[PATH_MAX];
+    
+    /* Convert file:// URI to plain path if needed */
+    if (app_path && g_str_has_prefix(app_path, "file://")) {
+        plain_path = g_filename_from_uri(app_path, NULL, NULL);
+        if (plain_path) {
+            check_path = plain_path;
+        }
+    }
+    
+    /* Resolve symlinks to canonical path for desktop matching */
+    if (check_path && realpath(check_path, resolved)) {
+        canonical_path = g_strdup(resolved);
+        check_path = canonical_path;
+    }
     
     /* Priority 1: Manual apps list (highest priority) */
-    if (is_manual_app(app_path)) {
+    if (is_manual_app(check_path)) {
         if (reason_out) *reason_out = g_strdup("manual list");
-        return POOL_PRIORITY;
+        result = POOL_PRIORITY;
+        goto cleanup;
     }
     
     /* Priority 2: Has .desktop file */
-    if (kp_desktop_has_file(app_path)) {
-        const char *app_name = kp_desktop_get_name(app_path);
+    if (kp_desktop_has_file(check_path)) {
+        const char *app_name = kp_desktop_get_name(check_path);
         if (reason_out) {
             *reason_out = g_strdup_printf(".desktop (%s)", 
                                            app_name ? app_name : "unknown");
         }
-        return POOL_PRIORITY;
+        result = POOL_PRIORITY;
+        goto cleanup;
     }
+
     
     /* Priority 3: Excluded pattern check */
-    if (kp_pattern_matches_any(app_path,
+    if (kp_pattern_matches_any(check_path,
                                 kp_conf->system.excluded_patterns_list,
                                 kp_conf->system.excluded_patterns_count)) {
         if (reason_out) *reason_out = g_strdup("excluded pattern");
-        return POOL_OBSERVATION;
+        result = POOL_OBSERVATION;
+        goto cleanup;
     }
     
     /* Priority 4: User app path check */
-    if (kp_path_in_directories(app_path,
+    if (kp_path_in_directories(check_path,
                                  kp_conf->system.user_app_paths_list,
                                  kp_conf->system.user_app_paths_count)) {
         if (reason_out) *reason_out = g_strdup("user app directory");
-        return POOL_PRIORITY;
+        result = POOL_PRIORITY;
+        goto cleanup;
     }
     
     /* Default: Observation pool */
     if (reason_out) *reason_out = g_strdup("default (no match)");
-    return POOL_OBSERVATION;
+    result = POOL_OBSERVATION;
+    
+cleanup:
+    g_free(plain_path);
+    g_free(canonical_path);
+    return result;
 }
 
 /**

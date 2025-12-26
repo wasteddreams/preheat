@@ -106,4 +106,10 @@ int kp_stats_dump_to_file(const char *path);
  */
 void kp_stats_free(void);
 
+/**
+ * Reclassify all loaded applications
+ * Should be called after state load to apply updated classification logic
+ */
+void kp_stats_reclassify_all(void);
+
 #endif /* STATS_H */

@@ -372,6 +372,9 @@ main(int argc, char **argv)
     /* Load state from file */
     kp_state_load(statefile);
 
+    /* Reclassify all loaded apps (fixes cached pool values) */
+    kp_stats_reclassify_all();
+
     /* Register manual apps that aren't already tracked */
     kp_state_register_manual_apps();
 
