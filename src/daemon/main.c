@@ -60,6 +60,7 @@
 #include <getopt.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 /* Default file paths */
 #define DEFAULT_CONFFILE SYSCONFDIR "/" PACKAGE ".conf"
@@ -166,6 +167,52 @@ parse_cmdline(int *argc, char ***argv)
 }
 
 /**
+ * Check if a process with the given name is running
+ * Scans /proc directly instead of using popen() for security
+ */
+static gboolean
+is_process_running(const char *process_name)
+{
+    DIR *proc_dir = opendir("/proc");
+    if (!proc_dir) {
+        return FALSE;
+    }
+
+    struct dirent *entry;
+    gboolean found = FALSE;
+
+    while ((entry = readdir(proc_dir)) != NULL) {
+        /* Skip non-numeric entries (only PIDs are numeric) */
+        if (!isdigit(entry->d_name[0])) {
+            continue;
+        }
+
+        /* Read the process name from /proc/PID/comm */
+        char comm_path[512];
+        snprintf(comm_path, sizeof(comm_path), "/proc/%s/comm", entry->d_name);
+
+        FILE *comm_file = fopen(comm_path, "r");
+        if (comm_file) {
+            char comm[256];
+            if (fgets(comm, sizeof(comm), comm_file)) {
+                /* Remove trailing newline */
+                comm[strcspn(comm, "\n")] = '\0';
+
+                if (strcmp(comm, process_name) == 0) {
+                    found = TRUE;
+                    fclose(comm_file);
+                    break;
+                }
+            }
+            fclose(comm_file);
+        }
+    }
+
+    closedir(proc_dir);
+    return found;
+}
+
+/**
  * Run self-diagnostics
  * Checks system requirements without starting daemon
  */
@@ -247,27 +294,15 @@ run_self_test(void)
     }
     /* Check for ureadahead */
     if (access("/sbin/ureadahead", F_OK) == 0) {
-        FILE *pf = popen("pgrep -x ureadahead 2>/dev/null", "r");
-        if (pf) {
-            char buf[32];
-            if (fgets(buf, sizeof(buf), pf)) {
-                conflicts++;
-                printf("\n   WARNING: ureadahead running (PID %s)", buf);
-            }
-            pclose(pf);
+        if (is_process_running("ureadahead")) {
+            conflicts++;
+            printf("\n   WARNING: ureadahead daemon is running");
         }
     }
     /* Check for preload (original) */
-    {
-        FILE *pf = popen("pgrep -x preload 2>/dev/null", "r");
-        if (pf) {
-            char buf[32];
-            if (fgets(buf, sizeof(buf), pf)) {
-                conflicts++;
-                printf("\n   WARNING: preload daemon running (PID %s)", buf);
-            }
-            pclose(pf);
-        }
+    if (is_process_running("preload")) {
+        conflicts++;
+        printf("\n   WARNING: preload daemon is running");
     }
     if (conflicts == 0) {
         printf("PASS (no conflicts detected)\n");
