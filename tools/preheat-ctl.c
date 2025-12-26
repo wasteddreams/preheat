@@ -961,15 +961,17 @@ cmd_explain(const char *app_name)
     }
     
     /* Calculate scores (simplified scoring logic) */
-    time_t now = time(NULL);
-    double hours_ago = (now - last_seen) / 3600.0;
+    /* NOTE: update_time and seq are daemon-relative timestamps (seconds since daemon start),
+     * not Unix timestamps, so we can't calculate absolute "days ago". Instead, we show
+     * the daemon-time values and relative differences. */
     
-    /* Frequency score: normalized weighted launches (assume max is 100) */
-    double freq_score = (weighted_launches / 100.0);
+    /* Frequency score: normalized weighted launches (assume max is 600) */
+    double freq_score = (weighted_launches / 600.0);
     if (freq_score > 1.0) freq_score = 1.0;
     
-    /* Recency score: exponential decay */
-    double recency_score = exp(-hours_ago / 24.0);  /* Decay over 24 hours */
+    /* Recency score: We can't calculate real recency without daemon start time,
+     * so we use a simplified heuristic based on launch count instead */
+    double recency_score = (raw_launches > 0) ? 0.5 : 0.0;
     
     /* Combined score (simplified - real daemon uses more complex formula) */
     double combined = (0.6 * freq_score) + (0.4 * recency_score);
@@ -1000,19 +1002,20 @@ cmd_explain(const char *app_name)
     int runtime_mins = (total_runtime % 3600) / 60;
     printf("    Total Runtime:      %dh %dm\n", runtime_hours, runtime_mins);
     
-    if (hours_ago < 1.0) {
-        printf("    Last Seen:          %.0f minutes ago\n", hours_ago * 60);
-    } else if (hours_ago < 24.0) {
-        printf("    Last Seen:          %.1f hours ago\n", hours_ago);
+    /* Show daemon-relative time difference instead of absolute time */
+    int time_since_update = last_seen - first_seen;  /* Both are daemon-relative */
+    if (time_since_update > 0) {
+        int days_diff = time_since_update / 86400;
+        int hours_diff = (time_since_update % 86400) / 3600;
+        if (days_diff > 0) {
+            printf("    Activity Span:      %dd %dh (in daemon time)\n", days_diff, hours_diff);
+        } else if (hours_diff > 0) {
+            printf("    Activity Span:      %dh (in daemon time)\n", hours_diff);
+        } else {
+            printf("    Activity Span:      Recently started\n");
+        }
     } else {
-        printf("    Last Seen:          %.1f days ago\n", hours_ago / 24.0);
-    }
-    
-    double days_old = (now - first_seen) / 86400.0;
-    if (days_old < 1.0) {
-        printf("    First Seen:         today\n");
-    } else {
-        printf("    First Seen:         %.0f days ago\n", days_old);
+        printf("    Activity Span:      Single session\n");
     }
     
     /* Prediction Scores */
