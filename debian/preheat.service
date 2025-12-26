@@ -45,8 +45,9 @@ RestrictNamespaces=yes
 SystemCallFilter=@file-system @process @signal readahead
 SystemCallErrorNumber=EPERM
 
-# Make system directories read-only
-ReadOnlyPaths=/etc /usr
+# Make system directories read-only (but allow /usr/local for logs/state)
+# ReadOnlyPaths=/etc /usr would block /usr/local/var/log access
+ReadOnlyPaths=/etc
 
 [Install]
 WantedBy=multi-user.target
