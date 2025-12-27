@@ -342,14 +342,73 @@ kp_prophet_readahead(GPtrArray *maps_arr)
 }
 
 /**
+ * Load memory maps for an executable that has none (lazy loading)
+ * 
+ * Creates a single map covering the entire binary file. This is used for
+ * manual apps that weren't discovered through process scanning.
+ * 
+ * @param exe Executable to load maps for
+ * @return TRUE if successfully loaded, FALSE if file doesn't exist or is too small
+ */
+static gboolean
+load_maps_for_exe(kp_exe_t *exe)
+{
+    struct stat st;
+    kp_map_t *map;
+    kp_exemap_t *exemap;
+    
+    g_return_val_if_fail(exe, FALSE);
+    g_return_val_if_fail(exe->path, FALSE);
+    
+    /* Check if file exists and get size */
+    if (stat(exe->path, &st) < 0) {
+        g_warning("Cannot stat manual app: %s (%s)", exe->path, strerror(errno));
+        return FALSE;
+    }
+    
+    /* Check minimum size threshold */
+    if ((size_t)st.st_size < (size_t)kp_conf->model.minsize) {
+        g_debug("Manual app too small to preload: %s (%zu bytes < %d)",
+                exe->path, (size_t)st.st_size, kp_conf->model.minsize);
+        return FALSE;
+    }
+    
+    /* Create single map for entire file */
+    map = kp_map_new(exe->path, 0, st.st_size);
+    if (!map) {
+        g_warning("Failed to create map for manual app: %s", exe->path);
+        return FALSE;
+    }
+    
+    /* Create exemap and add to exe */
+    exemap = kp_exe_map_new(exe, map);
+    if (!exemap) {
+        g_warning("Failed to create exemap for manual app: %s", exe->path);
+        return FALSE;
+    }
+    
+    exemap->prob = 1.0;  /* Assume entire file is needed */
+    
+    g_debug("Loaded map for manual app: %s (%zu bytes)", exe->path, (size_t)st.st_size);
+    
+    return TRUE;
+}
+
+/**
  * Boost manual apps by giving them high probability
  * Manual apps get a strong negative lnprob (= high need probability)
+ * 
+ * LAZY MAP LOADING:
+ * Manual apps are registered without memory maps (exemaps = NULL) because
+ * they may not be running when first added. This function checks if a
+ * manual app has no maps and loads them on-demand before boosting priority.
  */
 static void
 boost_manual_apps(void)
 {
     char **app_path;
     int boosted = 0;
+    int maps_loaded = 0;
 
     if (!kp_conf->system.manual_apps_loaded ||
         kp_conf->system.manual_apps_count == 0) {
@@ -363,6 +422,13 @@ boost_manual_apps(void)
         exe = g_hash_table_lookup(kp_state->exes, *app_path);
 
         if (exe && !exe_is_running(exe)) {
+            /* Load maps if not already loaded (lazy loading) */
+            if (g_set_size(exe->exemaps) == 0) {
+                if (load_maps_for_exe(exe)) {
+                    maps_loaded++;
+                }
+            }
+            
             /* Boost: set strong negative lnprob = high need */
             exe->lnprob = MANUAL_APP_BOOST_LNPROB;
             boosted++;
@@ -370,7 +436,11 @@ boost_manual_apps(void)
     }
 
     if (boosted > 0) {
-        g_debug("Boosted %d manual apps for preloading", boosted);
+        if (maps_loaded > 0) {
+            g_debug("Boosted %d manual apps (%d had maps loaded)", boosted, maps_loaded);
+        } else {
+            g_debug("Boosted %d manual apps for preloading", boosted);
+        }
     }
 }
 

@@ -462,7 +462,9 @@ load_manual_apps_file(kp_conf_t *conf)
         conf->system.manual_apps_count = 0;
     }
 
+
     if (!conf->system.manualapps || !*conf->system.manualapps) {
+        g_debug("No manual apps file configured");
         return;
     }
 
