@@ -428,13 +428,18 @@ This ensures your daily applications are warm in cache the moment you need them.
 
 On first startup, preheat doesn't start with an empty model. It scans your system for usage hints:
 
-| Source | What it finds |
-|--------|---------------|
-| **XDG Recently-Used** | Files you've opened recently |
-| **Desktop file timestamps** | Apps with recent `.desktop` access |
-| **Shell history** | Commands from bash/zsh history |
-| **Browser profiles** | Installed Firefox, Chrome, etc. |
-| **Developer tools** | VS Code, Node, Python, Git, etc. |
+| Source | What it finds | Filtering |
+|--------|---------------|-----------|
+| **XDG Recently-Used** | Files you've opened recently | GUI apps only |
+| **Desktop file timestamps** | Apps with recent `.desktop` access | Excludes shell wrappers |
+| **Shell history** | Commands from bash/zsh history | **Only apps with .desktop files** |
+| **Browser profiles** | Installed Firefox, Chrome, etc. | None |
+| **System defaults** | DE-specific apps (GNOME, KDE) | None |
+
+**Filtering (v1.0+):**
+- Shell history only seeds apps that have a `.desktop` file (excludes `grep`, `ls`, etc.)
+- Desktop seeding skips launcher scripts like Kali's `exec-in-shell` wrapper
+- Prevents shell wrappers from dominating the "top apps" list
 
 This provides immediate preloading benefit from day one—no waiting for the learning period.
 
