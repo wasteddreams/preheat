@@ -84,6 +84,47 @@ State transitions recorded:
 - Recent observations have more weight
 - The model adapts as habits change
 
+**Weighted Launch Counting (v1.1.0+):**
+
+Preheat uses sophisticated launch counting to accurately track application usage:
+
+```
+Launch Weight Formula:
+  weight = base × log(1 + duration/divisor) × user_mult × short_penalty
+
+Where:
+  base = 1.0
+  divisor = 60 seconds (configurable)
+  user_mult = 2.0 for user-initiated, 1.0 for automated (configurable)
+  short_penalty = 0.3 if duration < 5 seconds, 1.0 otherwise
+```
+
+**Progressive Weight Accumulation:**
+
+```
+Application launched:
+  t=0s    → raw_launches++ (immediate count)
+  t=20s   → weighted_launches += 0.8 (first cycle)
+  t=40s   → weighted_launches += 0.6 (second cycle)  
+  t=60s   → weighted_launches += 0.5 (third cycle)
+  ...     → continues until exit
+```
+
+- **Immediate counting**: `raw_launches` increments when process starts (not on exit)
+- **Incremental weighting**: Weight accumulates every scan cycle while running
+- **Short-lived penalty**: Processes <5 seconds get only 30% weight (crashes, transient processes)
+
+**Example comparison:**
+
+| Scenario | Duration | User? | Weight Formula | Final Weight |
+|----------|----------|-------|----------------|--------------|
+| Grep (automated) | 0.1s | No | 1.0 × log(1.002) × 1.0 × 0.3 | ~0.001 |
+| Failed launch (crash) | 2s | Yes | 1.0 × log(1.03) × 2.0 × 0.3 | ~0.02 |
+| Terminal session | 600s | Yes | 1.0 × log(11) × 2.0 × 1.0 | ~4.8 |
+| Firefox (long session) | 7200s | Yes | 1.0 × log(121) × 2.0 × 1.0 | ~9.8 |
+
+This prevents crashes and trivial processes from inflating prediction scores.
+
 ### Phase 3: Predict
 
 Using the learned model, preheat calculates which applications are most likely to be launched:
