@@ -46,6 +46,7 @@
 #include "readahead.h"
 #include "../utils/logging.h"
 #include "../config/config.h"
+#include "../daemon/stats.h"
 
 #include <sys/ioctl.h>
 #include <sys/wait.h>
@@ -410,6 +411,7 @@ kp_readahead(kp_map_t **files, int file_count)
 
         if (path) {
             process_file(path, offset, length);
+            kp_stats_record_preload(path);
             processed++;
             path = NULL;
         }
@@ -421,6 +423,7 @@ kp_readahead(kp_map_t **files, int file_count)
 
     if (path) {
         process_file(path, offset, length);
+        kp_stats_record_preload(path);
         processed++;
         path = NULL;
     }
