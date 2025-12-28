@@ -303,8 +303,12 @@ kp_proc_foreach(GHFunc func, gpointer user_data)
             len = readlink(name, exe_buffer, sizeof(exe_buffer));
 
             if (len <= 0) {
-                /* Error occurred - process may have exited */
-                g_debug("readlink failed for %s: %s", name, strerror(errno));
+                /* Error occurred - check if it's a permission issue for snap */
+                int err = errno;
+                if (err == EACCES || err == EPERM) {
+                    /* Log permission errors - might explain snap issues */
+                    g_message("PROC DEBUG: Permission denied reading %s (errno=%d)", name, err);
+                }
                 continue;
             }
             if (len == sizeof(exe_buffer)) {
@@ -314,6 +318,12 @@ kp_proc_foreach(GHFunc func, gpointer user_data)
             }
 
             exe_buffer[len] = '\0';
+            
+            /* Log first 20 chars of every path to verify we're scanning */
+            static int scan_count = 0;
+            if (scan_count++ % 50 == 0) {
+                g_message("PROC DEBUG: Scanning pid=%d path=%.40s...", pid, exe_buffer);
+            }
 
             /* Debug: Log snap paths being processed */
             if (g_str_has_prefix(exe_buffer, "/snap/")) {
