@@ -303,11 +303,30 @@ kp_proc_foreach(GHFunc func, gpointer user_data)
             len = readlink(name, exe_buffer, sizeof(exe_buffer));
 
             if (len <= 0) {
-                /* Error occurred - check if it's a permission issue for snap */
+                /* Error occurred - check if it's a permission issue (snap sandbox) */
                 int err = errno;
                 if (err == EACCES || err == EPERM) {
-                    /* Log permission errors - might explain snap issues */
-                    g_message("PROC DEBUG: Permission denied reading %s (errno=%d)", name, err);
+                    /* Try fallback: read /proc/PID/cmdline for snap apps */
+                    char cmdline_path[64];
+                    g_snprintf(cmdline_path, sizeof(cmdline_path), "/proc/%s/cmdline", entry->d_name);
+                    
+                    FILE *cmdline_file = fopen(cmdline_path, "r");
+                    if (cmdline_file) {
+                        /* cmdline contains null-separated args, first is the executable */
+                        len = fread(exe_buffer, 1, sizeof(exe_buffer) - 1, cmdline_file);
+                        fclose(cmdline_file);
+                        
+                        if (len > 0) {
+                            exe_buffer[len] = '\0';
+                            /* Only use first arg (before first null) */
+                            char *null_pos = memchr(exe_buffer, '\0', len);
+                            if (null_pos && null_pos != exe_buffer) {
+                                /* Got the executable path from cmdline */
+                                g_message("SNAP WORKAROUND: Using cmdline for pid=%d: %s", pid, exe_buffer);
+                                goto process_exe;  /* Skip to processing */
+                            }
+                        }
+                    }
                 }
                 continue;
             }
@@ -318,7 +337,8 @@ kp_proc_foreach(GHFunc func, gpointer user_data)
             }
 
             exe_buffer[len] = '\0';
-            
+
+process_exe:
             /* Log first 20 chars of every path to verify we're scanning */
             static int scan_count = 0;
             if (scan_count++ % 50 == 0) {
