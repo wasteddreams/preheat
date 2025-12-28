@@ -85,7 +85,16 @@ typedef struct _read_context_t
  * READ FUNCTIONS
  * ======================================================================== */
 
-/* Read map from state file (VERBATIM from upstream) */
+/* Read map from state file (VERBATIM from upstream)
+ * 
+ * MAP format: "MAP <seq> <update_time> <offset> <length> <expansion> <uri>"
+ *   seq         - Unique sequence ID for this map (used by EXEMAP references)
+ *   update_time - Timestamp when this map was last seen
+ *   offset      - Byte offset within the file (usually 0)
+ *   length      - Size of the memory region in bytes
+ *   expansion   - Reserved field (unused, always -1)
+ *   uri         - File URI (file:///path/to/file)
+ */
 static void
 read_map(read_context_t *rc)
 {
@@ -95,6 +104,7 @@ read_map(read_context_t *rc)
     unsigned long offset, length;
     char *path;
 
+    /* Parse: seq update_time offset length expansion uri */
     if (6 > sscanf(rc->line,
                    "%d %d %lu %lu %d %"FILELENSTR"s",
                    &i, &update_time, &offset, &length, &expansion, rc->filebuf)) {
@@ -135,7 +145,24 @@ read_badexe(read_context_t *rc G_GNUC_UNUSED)
     return;
 }
 
-/* Read exe from state file (Enhanced with weighted launch counting) */
+/* Read exe from state file (Enhanced with weighted launch counting)
+ *
+ * EXE format (v1.0+, 9 fields):
+ *   "EXE <seq> <update_time> <time> <expansion> <pool> <weighted> <raw> <duration> <uri>"
+ *   seq             - Unique sequence ID (used by EXEMAP and MARKOV references)
+ *   update_time     - Timestamp when this exe was last seen running
+ *   time            - Total accumulated runtime weight
+ *   expansion       - Reserved field (unused, always -1)
+ *   pool            - Pool classification: 0=observation, 1=priority, 2=hidden
+ *   weighted        - Weighted launch count (logarithmic dampening applied)
+ *   raw             - Raw launch count (actual process starts)
+ *   duration        - Total runtime in seconds (for short-lived penalty)
+ *   uri             - Executable path as file URI
+ *
+ * Legacy formats (auto-migrated):
+ *   6-field: seq update_time time expansion pool uri       (pool but no weighted)
+ *   5-field: seq update_time time expansion uri            (original preload format)
+ */
 static void
 read_exe(read_context_t *rc)
 {
@@ -208,7 +235,15 @@ err:
     kp_exe_free(exe);
 }
 
-/* Read exemap from state file (VERBATIM from upstream) */
+/* Read exemap from state file (VERBATIM from upstream)
+ *
+ * EXEMAP format: "EXEMAP <exe_seq> <map_seq> <probability>"
+ *   exe_seq     - Reference to EXE sequence ID
+ *   map_seq     - Reference to MAP sequence ID
+ *   probability - How likely this map is used when exe runs (0.0-1.0)
+ *
+ * EXEMAPs link executables to their memory-mapped regions (libraries, data).
+ */
 static void
 read_exemap(read_context_t *rc)
 {
@@ -218,6 +253,7 @@ read_exemap(read_context_t *rc)
     kp_exemap_t *exemap;
     double prob;
 
+    /* Parse: exe_seq map_seq probability */
     if (3 > sscanf(rc->line,
                    "%d %d %lg",
                    &iexe, &imap, &prob)) {
@@ -236,7 +272,18 @@ read_exemap(read_context_t *rc)
     exemap->prob = prob;
 }
 
-/* Read markov from state file (VERBATIM from upstream) */
+/* Read markov from state file (VERBATIM from upstream)
+ *
+ * MARKOV format: "MARKOV <exe_a_seq> <exe_b_seq> <time> <ttl[4]> <weights[4x4]>"
+ *   exe_a_seq   - Reference to first EXE sequence ID
+ *   exe_b_seq   - Reference to second EXE sequence ID  
+ *   time        - Total observation time for this pair
+ *   ttl[4]      - Time-to-leave for each of 4 states (doubles)
+ *   weights[16] - 4x4 transition weight matrix (integers)
+ *
+ * States: 0=neither running, 1=A running, 2=B running, 3=both running
+ * Used to predict: "if A is running, how likely is B to start soon?"
+ */
 static void
 read_markov(read_context_t *rc)
 {
@@ -246,6 +293,7 @@ read_markov(read_context_t *rc)
     kp_markov_t *markov;
     int n;
 
+    /* Parse header: exe_a_seq exe_b_seq time */
     n = 0;
     if (3 > sscanf(rc->line,
                    "%d %d %d%n",
