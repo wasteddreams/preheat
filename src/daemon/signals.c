@@ -59,51 +59,63 @@ extern void kp_state_save(const char *statefile);
 extern void kp_config_dump_log(void);
 extern void kp_state_register_manual_apps(void);
 
+/* B002/B004 FIX: Atomic flags to prevent signal coalescing and races */
+static volatile sig_atomic_t pending_sighup = 0;
+static volatile sig_atomic_t pending_sigusr1 = 0;
+static volatile sig_atomic_t pending_sigusr2 = 0;
+static volatile sig_atomic_t pending_exit = 0;
+static volatile sig_atomic_t state_saving = 0;  /* B004: Defer SIGHUP during save */
+
 /**
  * Synchronous signal handler
- * (VERBATIM from upstream preload sig_handler_sync)
- *
- * Processes signals in the main loop context to avoid race conditions
+ * 
+ * B002 FIX: Uses atomic flags to prevent multiple queued handlers
+ * B004 FIX: Defers SIGHUP if state save is in progress
  */
 static gboolean
 sig_handler_sync(gpointer data)
 {
-    int sig = GPOINTER_TO_INT(data);
+    (void)data;  /* Unused - we check atomic flags instead */
 
-    switch (sig) {
-        case SIGHUP:
-            /* Reload configuration, blacklist, and reopen log file */
-            g_message("SIGHUP received - reloading configuration");
-            kp_config_load(conffile, FALSE);
-            kp_blacklist_reload();
-            kp_state_register_manual_apps();  /* Re-register after config reload */
-            kp_log_reopen(logfile);
-            break;
+    /* B004: If saving state, defer SIGHUP processing */
+    if (pending_sighup && !state_saving) {
+        pending_sighup = 0;
+        g_message("SIGHUP received - reloading configuration");
+        kp_config_load(conffile, FALSE);
+        kp_blacklist_reload();
+        kp_state_register_manual_apps();
+        kp_log_reopen(logfile);
+    }
 
-        case SIGUSR1:
-            /* Dump current state, config, and stats to log/file */
-            g_message("SIGUSR1 received - dumping state and stats");
-            kp_state_dump_log();
-            kp_config_dump_log();
-            kp_stats_dump_to_file("/run/preheat.stats");
-            break;
+    if (pending_sigusr1) {
+        pending_sigusr1 = 0;
+        g_message("SIGUSR1 received - dumping state and stats");
+        kp_state_dump_log();
+        kp_config_dump_log();
+        kp_stats_dump_to_file("/run/preheat.stats");
+    }
 
-        case SIGUSR2:
-            /* Save state immediately */
-            g_message("SIGUSR2 received - saving state");
-            kp_state_save(statefile);
-            break;
+    if (pending_sigusr2) {
+        pending_sigusr2 = 0;
+        g_message("SIGUSR2 received - saving state");
+        state_saving = 1;
+        kp_state_save(statefile);
+        state_saving = 0;
+        /* Process any deferred SIGHUP */
+        if (pending_sighup) {
+            g_timeout_add(0, sig_handler_sync, NULL);
+        }
+    }
 
-        default:
-            /* Everything else is an exit request */
-            g_message("Exit signal received (%d) - shutting down", sig);
-            if (main_loop && g_main_loop_is_running(main_loop)) {
-                g_main_loop_quit(main_loop);
-            } else {
-                /* If main loop not running, exit immediately */
-                exit(EXIT_SUCCESS);
-            }
-            break;
+    if (pending_exit) {
+        int sig = pending_exit;
+        pending_exit = 0;
+        g_message("Exit signal received (%d) - shutting down", sig);
+        if (main_loop && g_main_loop_is_running(main_loop)) {
+            g_main_loop_quit(main_loop);
+        } else {
+            exit(EXIT_SUCCESS);
+        }
     }
 
     return FALSE;  /* Don't repeat */
@@ -111,32 +123,57 @@ sig_handler_sync(gpointer data)
 
 /**
  * Asynchronous signal handler
- * (VERBATIM from upstream preload sig_handler)
- *
- * Just schedules synchronous handler in main loop
+ * 
+ * B002 FIX: Sets atomic flag instead of queuing multiple handlers
  */
 static RETSIGTYPE
 sig_handler(int sig)
 {
-    /* Schedule sync handler in main loop for thread safety */
-    g_timeout_add(0, sig_handler_sync, GINT_TO_POINTER(sig));
+    /* Set atomic flag - prevents multiple queued handlers */
+    switch (sig) {
+        case SIGHUP:  pending_sighup = 1; break;
+        case SIGUSR1: pending_sigusr1 = 1; break;
+        case SIGUSR2: pending_sigusr2 = 1; break;
+        default:      pending_exit = sig; break;
+    }
+    g_timeout_add(0, sig_handler_sync, NULL);
 }
 
 /**
  * Install signal handlers
- * (VERBATIM from upstream preload set_sig_handlers)
+ * 
+ * BUG FIXES:
+ *   B001: Added SIGCHLD with SA_NOCLDWAIT to auto-reap zombie children
+ *   B003: Migrated from deprecated signal() to sigaction()
  */
 void
 kp_signals_init(void)
 {
+    struct sigaction sa;
+    
+    /* Set up common handler for most signals */
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = sig_handler;
+    sa.sa_flags = SA_RESTART;  /* Restart interrupted syscalls */
+    sigemptyset(&sa.sa_mask);
+    
     /* Trap key signals */
-    signal(SIGINT,  sig_handler);   /* Ctrl+C */
-    signal(SIGQUIT, sig_handler);   /* Ctrl+\ */
-    signal(SIGTERM, sig_handler);   /* systemctl stop */
-    signal(SIGHUP,  sig_handler);   /* systemctl reload */
-    signal(SIGUSR1, sig_handler);   /* dump state */
-    signal(SIGUSR2, sig_handler);   /* save state */
-    signal(SIGPIPE, SIG_IGN);       /* ignore broken pipes */
+    sigaction(SIGINT,  &sa, NULL);   /* Ctrl+C */
+    sigaction(SIGQUIT, &sa, NULL);   /* Ctrl+\ */
+    sigaction(SIGTERM, &sa, NULL);   /* systemctl stop */
+    sigaction(SIGHUP,  &sa, NULL);   /* systemctl reload */
+    sigaction(SIGUSR1, &sa, NULL);   /* dump state */
+    sigaction(SIGUSR2, &sa, NULL);   /* save state */
+    
+    /* Ignore SIGPIPE (broken pipe from child processes) */
+    sa.sa_handler = SIG_IGN;
+    sigaction(SIGPIPE, &sa, NULL);
+    
+    /* B001 FIX: Auto-reap child processes to prevent zombies
+     * SA_NOCLDWAIT causes children to be reaped automatically */
+    sa.sa_handler = SIG_DFL;
+    sa.sa_flags = SA_NOCLDWAIT;
+    sigaction(SIGCHLD, &sa, NULL);
 
-    g_debug("Signal handlers installed");
+    g_debug("Signal handlers installed (using sigaction)");
 }

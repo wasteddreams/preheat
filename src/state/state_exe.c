@@ -174,15 +174,23 @@ shift_kp_markov_new_wrapper(gpointer key, gpointer value, gpointer user_data)
 
 /**
  * Register exe in state
- * (VERBATIM from upstream preload_state_register_exe)
+ * (Modified from upstream preload_state_register_exe)
+ * 
+ * B012 FIX: Limit Markov chain creation to prevent O(n²) memory growth.
+ * With N executables, creating chains to all others requires N*(N-1)/2 chains.
+ * We limit chains to when total exes < MAX_MARKOV_EXES.
  */
+#define MAX_MARKOV_EXES 100  /* Only create full Markov mesh below this count */
+
 void
 kp_state_register_exe(kp_exe_t *exe, gboolean create_markovs)
 {
     g_return_if_fail(!g_hash_table_lookup(kp_state->exes, exe));
 
     exe->seq = ++(kp_state->exe_seq);
-    if (create_markovs) {
+    
+    /* B012 FIX: Only create Markov chains when exe count is manageable */
+    if (create_markovs && g_hash_table_size(kp_state->exes) < MAX_MARKOV_EXES) {
         g_hash_table_foreach(kp_state->exes, shift_kp_markov_new_wrapper, exe);
     }
     g_hash_table_insert(kp_state->exes, exe->path, exe);

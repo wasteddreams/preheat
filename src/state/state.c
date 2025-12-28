@@ -366,10 +366,52 @@ kp_state_tick(gpointer data)
 
 static const char *autosave_statefile;
 
+/* B008 FIX: Eviction thresholds */
+#define EXE_EVICTION_THRESHOLD 1500  /* Start evicting when above this count */
+#define EXE_EVICTION_MAX_AGE (30 * 24 * 3600)  /* 30 days in seconds */
+
+/**
+ * B008 FIX: Check if an exe should be evicted
+ * Returns TRUE if exe is old and unused (not seen in 30+ days, zero weight)
+ */
+static gboolean
+should_evict_exe(gpointer key, gpointer value, gpointer user_data)
+{
+    kp_exe_t *exe = (kp_exe_t *)value;
+    int current_time = *(int *)user_data;
+    
+    (void)key;
+    
+    /* Keep if has any weighted launches */
+    if (exe->weighted_launches > 0.1)
+        return FALSE;
+    
+    /* Keep if running recently */
+    if (exe->running_timestamp > current_time - EXE_EVICTION_MAX_AGE)
+        return FALSE;
+    
+    /* Evict: old and unused */
+    return TRUE;
+}
+
 static gboolean
 kp_state_autosave(gpointer user_data)
 {
     (void)user_data;
+    
+    /* B008 FIX: Evict old unused exes if table is too large */
+    guint exe_count = g_hash_table_size(kp_state->exes);
+    if (exe_count > EXE_EVICTION_THRESHOLD) {
+        int current_time = kp_state->time;
+        guint before = exe_count;
+        g_hash_table_foreach_remove(kp_state->exes, should_evict_exe, &current_time);
+        guint after = g_hash_table_size(kp_state->exes);
+        if (after < before) {
+            g_message("B008: Evicted %u old unused exes (%u -> %u)", 
+                      before - after, before, after);
+        }
+    }
+    
     kp_state_save(autosave_statefile);
 
     g_timeout_add_seconds(kp_conf->system.autosave, kp_state_autosave, NULL);

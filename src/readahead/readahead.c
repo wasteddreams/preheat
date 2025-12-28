@@ -200,17 +200,22 @@ static int procs = 0;
  * Called when we've reached maxprocs limit or when finishing
  * the readahead batch. Blocks until all children exit.
  *
- * THREAD SAFETY:
- *   Not thread-safe. Only called from main daemon process.
+ * B006 FIX: Handle EINTR properly - retry wait() if interrupted.
  */
 static void
 wait_for_children(void)
 {
-    /* Blocking wait loop - decrements counter as each child exits */
     while (procs > 0) {
         int status;
-        if (wait(&status) > 0)
+        pid_t pid = wait(&status);
+        if (pid > 0) {
             procs--;
+        } else if (pid < 0 && errno != EINTR) {
+            /* Real error - reset to avoid infinite loop */
+            procs = 0;
+            break;
+        }
+        /* EINTR: just retry */
     }
 }
 

@@ -88,14 +88,22 @@ get_parent_pid(pid_t pid)
     if (!fp)
         return 0;
     
-    /* Format: pid (comm) state ppid ... */
-    /* Skip to 4th field (ppid) */
-    int dummy_pid;
-    char dummy_comm[256];
-    char dummy_state;
-    
-    if (fscanf(fp, "%d %s %c %d", &dummy_pid, dummy_comm, &dummy_state, &ppid) != 4)
-        ppid = 0;
+    /* Format: pid (comm) state ppid ...
+     * SECURITY FIX (B013/B016): comm is in parentheses and can contain
+     * spaces, newlines, or any character except ')'. Use %*s to skip
+     * to the last ')' then parse remaining fields.
+     */
+    char line[1024];
+    if (fgets(line, sizeof(line), fp)) {
+        /* Find last ')' - comm field ends there */
+        char *close_paren = strrchr(line, ')');
+        if (close_paren && close_paren[1] == ' ') {
+            /* Parse: " state ppid ..." after the closing paren */
+            char state;
+            if (sscanf(close_paren + 2, "%c %d", &state, &ppid) != 2)
+                ppid = 0;
+        }
+    }
     
     fclose(fp);
     return ppid;

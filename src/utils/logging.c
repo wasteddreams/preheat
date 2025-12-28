@@ -185,9 +185,12 @@ kp_log_reopen(const char *logfile)
         return;
     }
 
+    /* B010 FIX: Ensure FD is closed even if dup2 fails */
     if ((dup2(logfd, STDOUT_FILENO) != STDOUT_FILENO) ||
-        (dup2(logfd, STDERR_FILENO) != STDERR_FILENO))
-        g_warning("dup2: %s", strerror(errno));
+        (dup2(logfd, STDERR_FILENO) != STDERR_FILENO)) {
+        g_warning("dup2: %s - logging may be broken", strerror(errno));
+        /* Don't return early - still close the FD */
+    }
 
     close(logfd);
 

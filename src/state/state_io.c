@@ -308,7 +308,8 @@ read_crc32(read_context_t *rc)
     }
 }
 
-/* Read family from state file (Enhancement #3) */
+/* Read family from state file (Enhancement #3)
+ * B014 FIX: Use strtok_r instead of strtok for reentrancy */
 static void
 read_family(read_context_t *rc)
 {
@@ -317,6 +318,7 @@ read_family(read_context_t *rc)
     char members_str[4096];
     kp_app_family_t *family;
     char *member_token;
+    char *saveptr;  /* B014: strtok_r state */
     
     if (3 > sscanf(rc->line, "%255s %d %4095[^\n]", family_id, &method_int, members_str)) {
         rc->errmsg = READ_SYNTAX_ERROR;
@@ -325,13 +327,14 @@ read_family(read_context_t *rc)
     
     family = kp_family_new(family_id, (discovery_method_t)method_int);
     
-    member_token = strtok(members_str, ";");
+    /* B014 FIX: strtok_r is reentrant */
+    member_token = strtok_r(members_str, ";", &saveptr);
     while (member_token) {
         while (*member_token == ' ') member_token++;
         if (*member_token) {
             kp_family_add_member(family, member_token);
         }
-        member_token = strtok(NULL, ";");
+        member_token = strtok_r(NULL, ";", &saveptr);
     }
     
     g_hash_table_insert(kp_state->app_families, g_strdup(family_id), family);
