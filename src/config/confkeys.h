@@ -77,11 +77,13 @@ confkey(system,	boolean,	dopredict,	   true,	-)
 confkey(system,	integer,	autosave,	   3600,	seconds)
 
 /* mapprefix: Semicolon-separated list of path prefixes to include/exclude.
- *            Prefix with ! to exclude. Example: "/usr;!/usr/share" */
-confkey(system,	string_list,	mapprefix,	   NULL,	-)
+ *            Prefix with ! to exclude. Example: "/usr;!/usr/share"
+ *            NOTE: Stored as string, parsed into mapprefix_list at runtime */
+confkey(system,	string,	mapprefix_raw,	   "/usr/;/lib;/var/cache/;!/",	-)
 
-/* exeprefix: Same as mapprefix but for executables specifically */
-confkey(system,	string_list,	exeprefix,	   NULL,	-)
+/* exeprefix: Same as mapprefix but for executables specifically
+ *            NOTE: Stored as string, parsed into exeprefix_list at runtime */
+confkey(system,	string,	exeprefix_raw,	   "!/usr/sbin/;!/usr/local/sbin/;!/usr/libexec/;/usr/;/snap/;!/",	-)
 
 /* maxprocs: Max concurrent readahead operations (prevents I/O saturation) */
 confkey(system,	integer,	maxprocs,	     30,	processes)

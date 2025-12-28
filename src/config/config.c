@@ -713,7 +713,9 @@ kp_config_load(const char *conffile, gboolean fail)
     }
 
     /* Free old configuration string values */
+    g_free(kp_conf->system.mapprefix_raw);
     g_strfreev(kp_conf->system.mapprefix);
+    g_free(kp_conf->system.exeprefix_raw);
     g_strfreev(kp_conf->system.exeprefix);
     g_free(kp_conf->system.manualapps);
     g_strfreev(kp_conf->system.manual_apps_loaded);
@@ -771,6 +773,21 @@ kp_config_load(const char *conffile, gboolean fail)
     parse_pattern_list(kp_conf->system.user_app_paths,
                        &kp_conf->system.user_app_paths_list,
                        &kp_conf->system.user_app_paths_count);
+    
+    /* Parse prefix strings into arrays (semicolon-separated) */
+    if (kp_conf->system.mapprefix_raw && *kp_conf->system.mapprefix_raw) {
+        kp_conf->system.mapprefix = g_strsplit(kp_conf->system.mapprefix_raw, ";", -1);
+        int count = 0;
+        for (char **p = kp_conf->system.mapprefix; p && *p; p++) count++;
+        g_message("Parsed %d map prefixes from config", count);
+    }
+    
+    if (kp_conf->system.exeprefix_raw && *kp_conf->system.exeprefix_raw) {
+        kp_conf->system.exeprefix = g_strsplit(kp_conf->system.exeprefix_raw, ";", -1);
+        int count = 0;
+        for (char **p = kp_conf->system.exeprefix; p && *p; p++) count++;
+        g_message("Parsed %d exe prefixes from config", count);
+    }
     
     if (kp_conf->system.excluded_patterns_count > 0) {
         g_message("Loaded %d exclusion patterns for observation pool",

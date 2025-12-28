@@ -81,26 +81,28 @@ dopredict = true
 #
 autosave = 3600
 
-# mapprefix:
+# mapprefix_raw:
 #
 # List of path prefixes that control which mapped files are considered.
 # Separated by semicolons. Matching stops at first item matched.
 # Items starting with ! are rejected, others are accepted.
 #
 # default: /usr/;/lib;/var/cache/;!/
-mapprefix = /usr/;/lib;/var/cache/;!/
+mapprefix_raw = /usr/;/lib;/var/cache/;!/
 
-# exeprefix:
+# exeprefix_raw:
 #
-# Same syntax as mapprefix, but for binary executables.
+# Same syntax as mapprefix_raw, but for binary executables.
 # Paths starting with ! are excluded.
 #
 # NOTE: /usr/libexec/ is excluded because these are background daemon
 # helpers (gsd-*, gdm-*, ibus-*, etc.) that run 24/7. Preloading them
 # is pointless since they're already in memory.
 #
+# /snap/ is included for Ubuntu Snap applications.
+#
 # default: !/usr/sbin/;!/usr/local/sbin/;!/usr/libexec/;/usr/;/snap/;!/
-exeprefix = !/usr/sbin/;!/usr/local/sbin/;!/usr/libexec/;/usr/;/snap/;!/
+exeprefix_raw = !/usr/sbin/;!/usr/local/sbin/;!/usr/libexec/;/usr/;/snap/;!/
 
 # processes:
 #

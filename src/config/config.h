@@ -52,8 +52,10 @@ typedef struct _kp_conf_t
         gboolean dopredict;     /* Enable predictions and preloading */
         int autosave;           /* State save interval (seconds) */
 
-        char **mapprefix;       /* Prefixes for mapped files */
-        char **exeprefix;       /* Prefixes for executables */
+        char *mapprefix_raw;    /* Raw semicolon-separated prefix string */
+        char **mapprefix;       /* Parsed prefixes for mapped files */
+        char *exeprefix_raw;    /* Raw semicolon-separated prefix string */
+        char **exeprefix;       /* Parsed prefixes for executables */
 
         int maxprocs;           /* Max parallel readahead processes */
         enum {
