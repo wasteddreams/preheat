@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>
+#include <linux/limits.h>
 
 #include "ctl_config.h"
 
