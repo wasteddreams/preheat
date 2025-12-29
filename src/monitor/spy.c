@@ -75,8 +75,8 @@ static GHashTable *new_exes;        /* Newly discovered exe paths → PIDs */
  * @return Parent PID, or 0 if couldn't be determined
  *
  * Reads field 4 from /proc/{pid}/stat which contains the parent PID.
- */
-static pid_t
+ */ 
+pid_t
 get_parent_pid(pid_t pid)
 {
     char stat_path[64];
@@ -259,10 +259,18 @@ track_process_start(kp_exe_t *exe, pid_t pid, pid_t parent_pid)
     proc_info->last_weight_update = now;
     proc_info->user_initiated = is_user_initiated(parent_pid);
     
-    /* Increment raw launch count immediately */
-    exe->raw_launches++;
-    g_debug("Launch detected: %s (pid %d, user: %s)",
-            exe->path, pid, proc_info->user_initiated ? "yes" : "no");
+    /* Only increment raw launch count for user-initiated processes.
+     * This avoids counting child processes (e.g., Firefox content processes)
+     * as separate launches. Child processes inherit the parent's session and
+     * should not inflate the launch count. */
+    if (proc_info->user_initiated) {
+        exe->raw_launches++;
+        g_debug("Launch detected: %s (pid %d, user-initiated)",
+                exe->path, pid);
+    } else {
+        g_debug("Child process detected: %s (pid %d, parent %d)",
+                exe->path, pid, parent_pid);
+    }
     
     g_hash_table_insert(exe->running_pids, GINT_TO_POINTER(pid), proc_info);
 }

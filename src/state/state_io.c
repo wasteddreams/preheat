@@ -44,6 +44,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <ctype.h>
 
 /* ========================================================================
  * STATE FILE FORMAT TAGS
@@ -53,6 +54,8 @@
 #define TAG_MAP         "MAP"
 #define TAG_BADEXE      "BADEXE"
 #define TAG_EXE         "EXE"
+#define TAG_PIDS        "PIDS"       /* Running process PIDs subsection */
+#define TAG_PID         "PID"        /* Individual PID entry */
 #define TAG_EXEMAP      "EXEMAP"
 #define TAG_MARKOV      "MARKOV"
 #define TAG_FAMILY      "FAMILY"
@@ -76,10 +79,68 @@ typedef struct _read_context_t
     char *path;
     GHashTable *maps;
     GHashTable *exes;
+    kp_exe_t *current_exe;      /* Current exe for reading PIDS subsections */
+    int expected_pids;          /* Number of PIDs to read */
     gpointer data;
     GError *err;
     char filebuf[FILELEN];
 } read_context_t;
+
+/* ========================================================================
+ * PID VALIDATION HELPERS
+ * ======================================================================== */
+
+/* Forward declaration - get_parent_pid() is defined in spy.c */
+extern pid_t get_parent_pid(pid_t pid);
+
+/**
+ * Check if PID still exists in /proc
+ */
+static gboolean
+is_pid_alive(pid_t pid)
+{
+    char proc_path[64];
+    snprintf(proc_path, sizeof(proc_path), "/proc/%d", pid);
+    return g_file_test(proc_path, G_FILE_TEST_EXISTS);
+}
+
+/**
+ * Verify PID is still running the expected executable
+ *
+ * @param pid           Process ID to check
+ * @param expected_path Expected executable path
+ * @return TRUE if PID matches, FALSE if PID reused for different process
+ *
+ * PIDs can be reused by the kernel. We must verify the PID is still
+ * running the same executable we tracked, not a new process that
+ * happened to get the same PID.
+ */
+static gboolean
+verify_pid_exe_match(pid_t pid, const char *expected_path)
+{
+    char exe_link[64];
+    char actual_path[PATH_MAX];
+    char resolved_expected[PATH_MAX];
+    ssize_t len;
+    
+    snprintf(exe_link, sizeof(exe_link), "/proc/%d/exe", pid);
+    len = readlink(exe_link, actual_path, sizeof(actual_path) - 1);
+    
+    if (len < 0) {
+        /* Process exited or we don't have permission */
+        return FALSE;
+    }
+    actual_path[len] = '\0';
+    
+    /* Resolve both paths to canonical form (handle symlinks) */
+    if (!realpath(expected_path, resolved_expected)) {
+        /* Expected path doesn't exist anymore */
+        return FALSE;
+    }
+    
+    /* Compare canonical paths */
+    return (strcmp(actual_path, resolved_expected) == 0);
+}
 
 /* ========================================================================
  * READ FUNCTIONS
@@ -229,9 +290,13 @@ read_exe(read_context_t *rc)
     exe->time = time;
     g_hash_table_insert(rc->exes, GINT_TO_POINTER(i), exe);
     kp_state_register_exe(exe, FALSE);
+    
+    /* Store exe for subsequent PIDS/PID reading */
+    rc->current_exe = exe;
     return;
 
 err:
+    rc->current_exe = NULL;
     kp_exe_free(exe);
 }
 
@@ -388,6 +453,83 @@ read_family(read_context_t *rc)
     g_hash_table_insert(kp_state->app_families, g_strdup(family_id), family);
 }
 
+/* Read PIDS header from state file
+ *
+ * PIDS format: "PIDS <count>"
+ *   count - Number of PID entries that follow
+ *
+ * This is a subsection marker. The actual PIDs are read by read_pid().
+ */
+static void
+read_pids(read_context_t *rc)
+{
+    int count;
+    
+    if (1 > sscanf(rc->line, "%d", &count)) {
+        rc->errmsg = READ_SYNTAX_ERROR;
+        return;
+    }
+    
+    rc->expected_pids = count;
+    g_debug("Reading %d PIDs for exe %s", count, 
+            rc->current_exe ? rc->current_exe->path : "unknown");
+}
+
+/* Read individual PID from state file
+ *
+ * PID format: "PID <pid> <start_time> <last_update> <user_init>"
+ *   pid         - Process ID (will be validated on load)
+ *   start_time  - When process started (Unix timestamp)
+ *   last_update - Last weight update time (Unix timestamp)
+ *   user_init   - Boolean: 1 if user-initiated, 0 if automated
+ */
+static void
+read_pid(read_context_t *rc)
+{
+    pid_t pid;
+    time_t start_time, last_update;
+    int user_init;
+    process_info_t *proc_info;
+    
+    if (4 > sscanf(rc->line, "%d %ld %ld %d", 
+                   &pid, &start_time, &last_update, &user_init)) {
+        rc->errmsg = READ_SYNTAX_ERROR;
+        return;
+    }
+    
+    if (!rc->current_exe) {
+        rc->errmsg = "PID without parent EXE";
+        return;
+    }
+    
+    /* Validate: PID still exists and belongs to same executable */
+    if (!is_pid_alive(pid)) {
+        g_debug("Skipping stale PID %d for %s (process exited)", 
+                pid, rc->current_exe->path);
+        return;
+    }
+    
+    if (!verify_pid_exe_match(pid, rc->current_exe->path)) {
+        g_debug("Skipping PID %d for %s (executable mismatch - PID reused)", 
+                pid, rc->current_exe->path);
+        return;
+    }
+    
+    /* Create process_info_t and insert */
+    proc_info = g_new0(process_info_t, 1);
+    proc_info->pid = pid;
+    proc_info->parent_pid = get_parent_pid(pid);  /* Recalculate parent */
+    proc_info->start_time = start_time;
+    proc_info->last_weight_update = last_update;
+    proc_info->user_initiated = (gboolean)user_init;
+    
+    g_hash_table_insert(rc->current_exe->running_pids, 
+                       GINT_TO_POINTER(pid), proc_info);
+    
+    g_debug("Resumed tracking PID %d for %s (started %ld sec ago)",
+            pid, rc->current_exe->path, time(NULL) - start_time);
+}
+
 /* Helper callbacks for state initialization */
 static void
 set_running_process_callback(pid_t G_GNUC_UNUSED pid, const char *path, int time)
@@ -435,6 +577,8 @@ kp_state_read_from_channel(GIOChannel *f)
 
     rc.errmsg = NULL;
     rc.err = NULL;
+    rc.current_exe = NULL;
+    rc.expected_pids = 0;
     rc.maps = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify)kp_map_unref);
     rc.exes = g_hash_table_new(g_direct_hash, g_direct_equal);
 
@@ -451,11 +595,12 @@ kp_state_read_from_channel(GIOChannel *f)
         lineno++;
         rc.line = linebuf->str;
 
-        if (1 > sscanf(rc.line, "%31s", tag)) {
+        int chars_consumed = 0;
+        if (1 > sscanf(rc.line, "%31s%n", tag, &chars_consumed)) {
             rc.errmsg = READ_TAG_ERROR;
             break;
         }
-        rc.line += strlen(tag);
+        rc.line += chars_consumed;  /* Advance by actual characters consumed (including whitespace) */
 
         if (lineno == 1 && strcmp(tag, TAG_PRELOAD)) {
             g_warning("State file has invalid header, ignoring it");
@@ -489,12 +634,15 @@ kp_state_read_from_channel(GIOChannel *f)
         }
         else if (!strcmp(tag, TAG_MAP))    read_map(&rc);
         else if (!strcmp(tag, TAG_BADEXE)) read_badexe(&rc);
-        else if (!strcmp(tag, TAG_EXE))    read_exe(&rc);
+        else if (!strcmp(tag, TAG_EXE))    { rc.current_exe = NULL; read_exe(&rc); }
+        else if (!strcmp(tag, TAG_PIDS))   read_pids(&rc);
+        else if (!strcmp(tag, TAG_PID))    read_pid(&rc);
         else if (!strcmp(tag, TAG_EXEMAP)) read_exemap(&rc);
         else if (!strcmp(tag, TAG_MARKOV)) read_markov(&rc);
         else if (!strcmp(tag, TAG_FAMILY)) read_family(&rc);
         else if (!strcmp(tag, TAG_CRC32))  read_crc32(&rc);
-        else if (linebuf->str[0] && linebuf->str[0] != '#') {
+        else if (linebuf->str[0] && linebuf->str[0] != '#' && !isspace((unsigned char)linebuf->str[0])) {
+            /* Unknown tag (ignoring whitespace-prefixed lines - they're subsections) */
             rc.errmsg = READ_TAG_ERROR;
             break;
         }
@@ -595,6 +743,9 @@ write_badexe_wrapper(gpointer key, gpointer value, gpointer user_data)
     write_badexe((char *)key, GPOINTER_TO_INT(value), (write_context_t *)user_data);
 }
 
+/* Forward declaration for write_pid_callback */
+static void write_pid_callback(gpointer key, gpointer value, gpointer user_data);
+
 static void
 write_exe(gpointer G_GNUC_UNUSED key, kp_exe_t *exe, write_context_t *wc)
 {
@@ -613,7 +764,48 @@ write_exe(gpointer G_GNUC_UNUSED key, kp_exe_t *exe, write_context_t *wc)
     write_string(wc->line);
     write_ln();
 
+    /* Write PIDS subsection if any running processes */
+    if (exe->running_pids && g_hash_table_size(exe->running_pids) > 0) {
+        /* Write "  PIDS\t<count>" manually to control spacing */
+        write_it("  ");  /* 2-space indent */
+        write_tag(TAG_PIDS);
+        g_string_printf(wc->line, "%d", g_hash_table_size(exe->running_pids));
+        write_string(wc->line);
+        write_ln();
+        
+        /* Write each PID */
+        g_hash_table_foreach(exe->running_pids, write_pid_callback, wc);
+    }
+
     g_free(uri);
+}
+
+/**
+ * Write individual PID entry (callback for g_hash_table_foreach)
+ */
+static void
+write_pid_callback(gpointer key, gpointer value, gpointer user_data)
+{
+    pid_t pid = GPOINTER_TO_INT(key);
+    process_info_t *proc_info = (process_info_t *)value;
+    write_context_t *wc = (write_context_t *)user_data;
+    
+    /* Verify PID still alive before persisting */
+    if (!is_pid_alive(pid)) {
+        g_debug("Skipping dead PID %d during save", pid);
+        return;
+    }
+    
+    /* Write "    PID\t..." manually with 4-space indent */
+    write_it("    ");  /* 4-space indent */
+    write_tag(TAG_PID);
+    g_string_printf(wc->line, "%d\t%ld\t%ld\t%d",
+                    pid,
+                    (long)proc_info->start_time,
+                    (long)proc_info->last_weight_update,
+                    (int)proc_info->user_initiated);
+    write_string(wc->line);
+    write_ln();
 }
 
 static void

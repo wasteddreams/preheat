@@ -76,10 +76,14 @@ dopredict = true
 # seconds. State saves also trigger janitor work (removing entries for
 # files that no longer exist).
 #
-# unit: seconds
-# default: 3600
+# IMPORTANT: With running process persistence enabled, more frequent
+# saves minimize data loss on daemon crash. 300 seconds (5 minutes) is
+# recommended for most systems.
 #
-autosave = 3600
+# unit: seconds
+# default: 300
+#
+autosave = 300
 
 # mapprefix_raw:
 #
