@@ -133,7 +133,7 @@ typedef struct _kp_exe_t
     GSet *markovs;              /* Set of markov chains with other exes */
     GSet *exemaps;              /* Set of exemap structures */
 
-    /* Weighted launch counting (Enhancement #2): */
+    /* Weighted launch counting: */
     double weighted_launches;   /* Sum of all launch weights (duration + user-init) */
     unsigned long raw_launches; /* Raw launch count (for Markov chains) */
     unsigned long total_duration_sec; /* Total cumulative runtime in seconds */
@@ -178,7 +178,7 @@ typedef struct _kp_markov_t
 #define markov_state(markov) ((exe_is_running((markov)->a)?1:0)+(exe_is_running((markov)->b)?2:0))
 
 /**
- * discovery_method_t: How a family was created (Enhancement #3)
+ * discovery_method_t: How a family was created
  */
 typedef enum {
     FAMILY_CONFIG,      /* User-defined in config file */
@@ -187,7 +187,7 @@ typedef enum {
 } discovery_method_t;
 
 /**
- * kp_app_family_t: Application family for grouping related apps (Enhancement #3)
+ * kp_app_family_t: Application family for grouping related apps
  *
  * Groups related applications (e.g., firefox + firefox-esr, code + code-insiders)
  * to aggregate statistics and improve prioritization.
@@ -237,7 +237,7 @@ typedef struct _kp_state_t
      * kp_map_t structures */
     GHashTable *maps;
 
-    /* Application families (Enhancement #3) */
+    /* Application families */
     GHashTable *app_families;       /* family_id → kp_app_family_t* */
     GHashTable *exe_to_family;      /* exe_path → family_id (reverse mapping) */
 
@@ -299,7 +299,7 @@ kp_exe_t * kp_exe_new(const char *path, gboolean running, GSet *exemaps);
 void kp_exe_free(kp_exe_t *exe);
 kp_exemap_t * kp_exe_map_new(kp_exe_t *exe, kp_map_t *map);
 
-/* Family management functions (Enhancement #3) */
+/* Family management functions */
 kp_app_family_t * kp_family_new(const char *family_id, discovery_method_t method);
 void kp_family_free(kp_app_family_t *family);
 void kp_family_add_member(kp_app_family_t *family, const char *exe_path);

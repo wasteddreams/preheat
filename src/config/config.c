@@ -705,7 +705,7 @@ kp_config_load(const char *conffile, gboolean fail)
 #undef STRINGIZE_IMPL
 #undef get_string
 
-        /* Load family definitions (Enhancement #3) */
+        /* Load family definitions */
         load_families_from_config(f);
         g_debug("configuration loading complete");
         

@@ -70,7 +70,7 @@ static struct {
     unsigned long preloads_total;
     unsigned long hits;
     unsigned long misses;
-    unsigned long memory_pressure_events;  /* Enhancement #5 */
+    unsigned long memory_pressure_events;
 
     /* Per-app tracking (simple hash) */
     GHashTable *app_launches;   /* app_name -> launch_count */
@@ -363,9 +363,22 @@ kp_stats_record_miss(const char *app_path)
     }
 }
 
+/**
+ * Check if an app is currently marked as preloaded
+ */
+gboolean
+kp_stats_is_app_preloaded(const char *app_path)
+{
+    const char *name;
+
+    if (!stats.initialized || !app_path) return FALSE;
+
+    name = get_app_name(app_path);
+    return g_hash_table_contains(stats.app_preloaded, name);
+}
 
 /**
- * Compare function for sorting by weighted launch count (Enhancement #2)
+ * Compare function for sorting by weighted launch count
  */
 typedef struct {
     const char *name;
@@ -413,7 +426,7 @@ kp_stats_get_summary(kp_stats_summary_t *summary)
         summary->apps_tracked = g_hash_table_size(kp_state->exes);
     }
 
-    /* Enhancement #5: Count apps by pool and collect memory stats */
+    /* Count apps by pool and collect memory stats */
     summary->priority_pool_count = 0;
     summary->observation_pool_count = 0;
     summary->total_preloaded_bytes = 0;
@@ -423,6 +436,7 @@ kp_stats_get_summary(kp_stats_summary_t *summary)
         g_hash_table_iter_init(&iter, kp_state->exes);
         while (g_hash_table_iter_next(&iter, &key, &value)) {
             kp_exe_t *exe = (kp_exe_t *)value;
+            const char *name = get_app_name(exe->path);
             
             /* Count by pool */
             if (exe->pool == POOL_PRIORITY) {
@@ -431,13 +445,15 @@ kp_stats_get_summary(kp_stats_summary_t *summary)
                 summary->observation_pool_count++;
             }
             
-            /* Accumulate memory */
-            summary->total_preloaded_bytes += exe->size;
+            /* Only accumulate size for apps that are currently preloaded */
+            if (g_hash_table_contains(stats.app_preloaded, name)) {
+                summary->total_preloaded_bytes += exe->size;
+            }
         }
     }
 
-    /* Get top apps from kp_state - PRIORITY POOL ONLY (Enhancement #2/3) */
-    /* Enhancement #3: Aggregate by families first, then individual apps */
+    /* Get top apps from kp_state - PRIORITY POOL ONLY */
+    /* Aggregate by families first, then individual apps */
     sorted = g_array_new(FALSE, FALSE, sizeof(app_count_t));
 
     /* First, update all family stats */
@@ -583,17 +599,17 @@ kp_stats_dump_to_file(const char *path)
     fprintf(f, "hit_rate=%.1f\n", summary.hit_rate);
     fprintf(f, "apps_tracked=%d\n", summary.apps_tracked);
 
-    /* Enhancement #5: Pool breakdown */
+    /* Pool breakdown */
     fprintf(f, "\n# Pool Breakdown\n");
     fprintf(f, "priority_pool=%d\n", summary.priority_pool_count);
     fprintf(f, "observation_pool=%d\n", summary.observation_pool_count);
 
-    /* Enhancement #5: Memory metrics */
+    /* Memory metrics */
     fprintf(f, "\n# Memory\n");
     fprintf(f, "total_preloaded_mb=%zu\n", summary.total_preloaded_bytes / (1024 * 1024));
     fprintf(f, "memory_pressure_events=%lu\n", summary.memory_pressure_events);
 
-    /* Enhancement #5: Top apps (extended to 20 with more details) */
+    /* Top apps (extended to 20 with more details) */
     fprintf(f, "\n# Top Apps (name:weighted:raw:preloaded:pool)\n");
     for (int i = 0; i < STATS_TOP_APPS; i++) {
         if (summary.top_apps[i].name) {
@@ -614,7 +630,7 @@ kp_stats_dump_to_file(const char *path)
 }
 
 /**
- * Record a memory pressure event (Enhancement #5)
+ * Record a memory pressure event
  * 
  * Called when preloading is skipped due to insufficient memory.
  * Helps diagnose if system is memory-constrained.
@@ -629,7 +645,7 @@ kp_stats_record_memory_pressure(void)
 }
 
 /**
- * Get hit rate for a specific app (Enhancement #5)
+ * Get hit rate for a specific app
  * 
  * NOTE: This is currently a stub implementation.
  * Per-app hit rate tracking will be implemented in future enhancement.

@@ -66,7 +66,7 @@ kp_exe_new(const char *path, gboolean running, GSet *exemaps)
     exe->time = 0;
     exe->change_timestamp = kp_state->time;
 
-    /* Initialize weighted launch counting fields (Enhancement #2) */
+    /* Initialize weighted launch counting fields */
     exe->weighted_launches = 0.0;
     exe->raw_launches = 0;
     exe->total_duration_sec = 0;
@@ -125,7 +125,7 @@ kp_exe_free(kp_exe_t *exe)
     g_set_free(exe->markovs);
     exe->markovs = NULL;
 
-    /* Free running PIDs hash table (Enhancement #2) */
+    /* Free running PIDs hash table */
     if (exe->running_pids) {
         g_hash_table_destroy(exe->running_pids);
         exe->running_pids = NULL;

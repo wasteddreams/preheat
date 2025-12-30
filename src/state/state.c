@@ -97,7 +97,7 @@ void kp_state_load(const char *statefile)
     kp_state->maps = g_hash_table_new((GHashFunc)kp_map_hash, (GEqualFunc)kp_map_equal);
     kp_state->maps_arr = g_ptr_array_new();
 
-    /* Initialize family hash tables (Enhancement #3) */
+    /* Initialize family hash tables */
     kp_state->app_families = g_hash_table_new_full(g_str_hash, g_str_equal,
                                                      g_free, (GDestroyNotify)kp_family_free);
     kp_state->exe_to_family = g_hash_table_new_full(g_str_hash, g_str_equal, 
@@ -136,7 +136,7 @@ void kp_state_load(const char *statefile)
         g_debug("loading state done");
     }
 
-    /* Enhancement #4: Smart first-run seeding */
+    /* Smart first-run seeding */
     if (state_was_empty || (kp_state->exes && g_hash_table_size(kp_state->exes) == 0)) {
         kp_seed_from_sources();
     }

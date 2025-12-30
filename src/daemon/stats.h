@@ -14,7 +14,7 @@
 #include <glib.h>
 #include <time.h>
 
-/* Maximum apps to track in top list (Enhancement #5: increased from 5 to 20) */
+/* Maximum apps to track in top list */
 #define STATS_TOP_APPS 20
 
 /* Statistics summary structure */
@@ -33,11 +33,11 @@ typedef struct _kp_stats_summary {
     time_t daemon_start;
     time_t last_prediction;
 
-    /* Enhancement #5: Pool breakdown */
+    /* Pool breakdown */
     int priority_pool_count;
     int observation_pool_count;
 
-    /* Enhancement #5: Memory metrics */
+    /* Memory metrics */
     size_t total_preloaded_bytes;
     unsigned long memory_pressure_events;
 
@@ -45,7 +45,7 @@ typedef struct _kp_stats_summary {
     struct {
         char *name;
         unsigned long launches;        /* Raw launch count */
-        double weighted_launches;      /* Weighted count (Enhancement #2) */
+        double weighted_launches;      /* Weighted count */
         gboolean preloaded;
         pool_type_t pool;              /* Pool classification */
         char *promotion_reason;        /* Why in priority pool (for debugging) */
@@ -76,19 +76,26 @@ void kp_stats_record_hit(const char *app_path);
 void kp_stats_record_miss(const char *app_path);
 
 /**
+ * Check if an app is currently marked as preloaded
+ * @param app_path Path of application
+ * @return TRUE if app was recently preloaded
+ */
+gboolean kp_stats_is_app_preloaded(const char *app_path);
+
+/**
  * Get current statistics summary
  * @param summary Output structure to fill
  */
 void kp_stats_get_summary(kp_stats_summary_t *summary);
 
 /**
- * Record a memory pressure event (Enhancement #5)
+ * Record a memory pressure event
  * Called when preloading is skipped due to insufficient memory
  */
 void kp_stats_record_memory_pressure(void);
 
 /**
- * Get hit rate for a specific app (Enhancement #5)
+ * Get hit rate for a specific app
  * @param app_path Path of application
  * @return Hit rate (0.0-100.0), or -1.0 if app not tracked
  */

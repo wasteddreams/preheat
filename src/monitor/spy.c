@@ -50,6 +50,7 @@
 #include "spy.h"
 #include "../config/config.h"
 #include "../state/state.h"
+#include "../daemon/stats.h"
 #include "proc.h"
 #include <math.h>
 
@@ -64,7 +65,7 @@ static GHashTable *new_exes;        /* Newly discovered exe paths → PIDs */
 
 /*
  * =============================================================================
- * WEIGHTED LAUNCH COUNTING (Enhancement #2)
+ * WEIGHTED LAUNCH COUNTING
  * =============================================================================
  */
 
@@ -267,6 +268,13 @@ track_process_start(kp_exe_t *exe, pid_t pid, pid_t parent_pid)
         exe->raw_launches++;
         g_debug("Launch detected: %s (pid %d, user-initiated)",
                 exe->path, pid);
+        
+        /* Record hit or miss for stats tracking */
+        if (kp_stats_is_app_preloaded(exe->path)) {
+            kp_stats_record_hit(exe->path);
+        } else {
+            kp_stats_record_miss(exe->path);
+        }
     } else {
         g_debug("Child process detected: %s (pid %d, parent %d)",
                 exe->path, pid, parent_pid);
@@ -427,7 +435,7 @@ running_process_callback(pid_t pid, const char *path)
         /* Update timestamp */
         exe->running_timestamp = kp_state->time;
         
-        /* Track process start for weighted counting (Enhancement #2) */
+        /* Track process start for weighted counting */
         if (!g_hash_table_lookup(exe->running_pids, GINT_TO_POINTER(pid))) {
             pid_t parent_pid = get_parent_pid(pid);
             track_process_start(exe, pid, parent_pid);
@@ -629,7 +637,7 @@ kp_spy_update_model(gpointer data)
 }
 
 /**
- * Get foreground time ratio for a process (STUB - Enhancement #2)
+ * Get foreground time ratio for a process (STUB)
  * 
  * TODO: Integrate with window manager to track actual foreground time.
  * 

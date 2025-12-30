@@ -116,11 +116,11 @@ confkey(preheat,	boolean,	enable_time_learning,	false,	-)
 confkey(preheat,	string,		manual_apps_list,	 NULL,	-)
 confkey(preheat,	string,		blacklist,		 NULL,	-)
 
-/* Weight calculation parameters (Enhancement #2) */
+/* Weight calculation parameters */
 confkey(preheat,	integer,	weight_duration_divisor,  60,	seconds)
 confkey(preheat,	integer,	weight_user_multiplier_x100, 200,	percent_times_100)
 
-/* Seeding control (Enhancement #4) */
+/* Seeding control */
 confkey(preheat,	boolean,	enable_seeding,		true,	-)
 confkey(preheat,	boolean,	seed_xdg_recent,	true,	-)
 confkey(preheat,	boolean,	seed_desktop_files,	true,	-)

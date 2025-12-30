@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * =============================================================================
- * MODULE: Application Families (Enhancement #3)
+ * MODULE: Application Families
  * =============================================================================
  *
  * Application families group related executables for better stat aggregation:

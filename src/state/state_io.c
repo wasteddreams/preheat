@@ -421,7 +421,7 @@ read_crc32(read_context_t *rc)
     }
 }
 
-/* Read family from state file (Enhancement #3)
+/* Read family from state file
  * B014 FIX: Use strtok_r instead of strtok for reentrancy */
 static void
 read_family(read_context_t *rc)
