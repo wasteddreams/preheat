@@ -93,21 +93,28 @@ echo ""
 for i in $(seq 1 $LAUNCH_COUNT); do
     echo -e "${CYAN}Launch $i of $LAUNCH_COUNT...${NC}"
     
-    # Launch Firefox with timeout (will auto-close)
-    timeout $RUNTIME firefox --new-window about:blank 2>/dev/null &
-    FIREFOX_JOB=$!
+    # Get the logged-in user's display
+    REAL_USER=$(who | grep -v root | head -1 | awk '{print $1}')
+    DISPLAY_NUM=$(who | grep -v root | head -1 | awk '{print $2}' | grep -oP '\d+' || echo "0")
     
-    sleep 2  # Let Firefox start
+    # Launch Firefox as the logged-in user with proper display
+    export DISPLAY=:${DISPLAY_NUM}
+    sudo -u ${REAL_USER:-ubuntu} DISPLAY=:${DISPLAY_NUM} firefox --new-window about:blank &
+    FIREFOX_PID=$!
     
-    # Find Firefox PIDs
-    FIREFOX_PIDS=$(pgrep -f "/firefox" 2>/dev/null | head -5 | tr '\n' ' ')
+    sleep 3  # Let Firefox fully start
+    
+    # Find all Firefox PIDs
+    FIREFOX_PIDS=$(pgrep -f "firefox" 2>/dev/null | grep -v $$ | head -5 | tr '\n' ' ')
     echo "  PIDs: $FIREFOX_PIDS"
     
-    # Wait for timeout to kill Firefox
-    sleep $((RUNTIME + 2))
+    # Wait for runtime
+    sleep $RUNTIME
     
-    # Gentle cleanup - only kill firefox processes, not timeout
-    killall firefox 2>/dev/null || true
+    # Close Firefox gracefully
+    killall -q firefox 2>/dev/null || true
+    sleep 1
+    killall -9 -q firefox 2>/dev/null || true
     
     echo "  Closed Firefox"
     
