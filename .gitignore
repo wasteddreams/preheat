@@ -133,7 +133,6 @@ tests/*.trs
 # Local config
 local.conf
 CONTEXT.md
-tests/
 CHANGELOG.md
 docs/STARTUP_TIME_MEASUREMENT.md
 docs/SNAP_FIREFOX_DEBUG_NOTES.md
