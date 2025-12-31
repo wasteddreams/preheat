@@ -235,6 +235,28 @@ calculate_launch_weight(time_t duration_sec, gboolean user_initiated)
 }
 
 /**
+ * Check if exe already has a user-initiated instance running
+ */
+static gboolean
+exe_has_user_initiated_running(kp_exe_t *exe)
+{
+    GHashTableIter iter;
+    gpointer key, value;
+    
+    if (!exe->running_pids || g_hash_table_size(exe->running_pids) == 0)
+        return FALSE;
+    
+    g_hash_table_iter_init(&iter, exe->running_pids);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+        process_info_t *info = (process_info_t *)value;
+        if (info->user_initiated)
+            return TRUE;
+    }
+    
+    return FALSE;
+}
+
+/**
  * Track process start for weighted counting
  *
  * @param exe         Executable structure
@@ -266,75 +288,36 @@ track_process_start(kp_exe_t *exe, pid_t pid, pid_t parent_pid)
      * If exe has a .desktop file, it's a real GUI app launched by user.
      * This handles snap-confine, bwrap, and other container parent processes
      * that aren't in our shell/terminal/desktop whitelist.
-     * 
-     * For apt-installed apps, is_user_initiated() already returns TRUE
-     * when launched from terminal/desktop, so this fallback never runs.
-     *
-     * IMPORTANT: Skip fallback if parent is the SAME executable - these are
-     * child processes (e.g., Firefox content processes), not new user launches.
      */
     if (!proc_info->user_initiated && kp_desktop_has_file(exe->path)) {
-        /* Check if parent is the same executable (child of self) */
-        gboolean is_child_of_self = FALSE;
-        if (parent_pid > 1) {
-            char parent_exe_link[64];
-            char parent_exe_path[PATH_MAX];
-            snprintf(parent_exe_link, sizeof(parent_exe_link), "/proc/%d/exe", parent_pid);
-            ssize_t len = readlink(parent_exe_link, parent_exe_path, sizeof(parent_exe_path) - 1);
-            if (len > 0) {
-                parent_exe_path[len] = '\0';
-                
-                /* Resolve symlinks for both paths before comparing.
-                 * /usr/bin/firefox-esr → /usr/lib/firefox-esr/firefox-esr
-                 * Without this, symlink and resolved path won't match. */
-                char exe_real[PATH_MAX];
-                char parent_real[PATH_MAX];
-                
-                const char *exe_resolved = realpath(exe->path, exe_real);
-                const char *parent_resolved = realpath(parent_exe_path, parent_real);
-                
-                if (exe_resolved && parent_resolved) {
-                    if (strcmp(exe_resolved, parent_resolved) == 0) {
-                        is_child_of_self = TRUE;
-                        g_debug("Child process detected via realpath match: %s (pid %d, parent %d)",
-                                exe->path, pid, parent_pid);
-                    }
-                } else {
-                    /* Fallback: compare basenames if realpath fails */
-                    char *exe_base = g_path_get_basename(exe->path);
-                    char *parent_base = g_path_get_basename(parent_exe_path);
-                    if (strcmp(exe_base, parent_base) == 0) {
-                        is_child_of_self = TRUE;
-                        g_debug("Child process detected via basename match: %s (pid %d, parent %d)",
-                                exe->path, pid, parent_pid);
-                    }
-                    g_free(exe_base);
-                    g_free(parent_base);
-                }
-            }
-        }
-        
-        if (!is_child_of_self) {
-            proc_info->user_initiated = TRUE;
-            g_debug("Desktop app fallback: %s (pid %d, parent was container)",
-                    exe->path, pid);
-        }
+        proc_info->user_initiated = TRUE;
+        g_debug("Desktop app fallback: %s (pid %d)", exe->path, pid);
     }
     
-    /* Only increment raw launch count for user-initiated processes.
-     * This avoids counting child processes (e.g., Firefox content processes)
-     * as separate launches. Child processes inherit the parent's session and
-     * should not inflate the launch count. */
+    /* KEY FIX: Only count as a new launch if this is the FIRST user-initiated
+     * instance. If exe already has a user-initiated process running, this new
+     * process is a child/worker (like Firefox content processes), not a new
+     * user launch. This handles multi-process apps like Firefox, Chrome, etc.
+     * where the main process spawns many content/GPU/utility processes. */
+    gboolean is_new_launch = FALSE;
     if (proc_info->user_initiated) {
-        exe->raw_launches++;
-        g_debug("Launch detected: %s (pid %d, user-initiated)",
-                exe->path, pid);
-        
-        /* Record hit or miss for stats tracking */
-        if (kp_stats_is_app_preloaded(exe->path)) {
-            kp_stats_record_hit(exe->path);
+        if (!exe_has_user_initiated_running(exe)) {
+            /* This is the first user-initiated instance - it's a real launch */
+            is_new_launch = TRUE;
+            exe->raw_launches++;
+            g_debug("Launch detected: %s (pid %d, first user-initiated)",
+                    exe->path, pid);
+            
+            /* Record hit or miss for stats tracking */
+            if (kp_stats_is_app_preloaded(exe->path)) {
+                kp_stats_record_hit(exe->path);
+            } else {
+                kp_stats_record_miss(exe->path);
+            }
         } else {
-            kp_stats_record_miss(exe->path);
+            /* Already have a user-initiated instance - this is a worker process */
+            g_debug("Worker process detected: %s (pid %d, user-initiated instance already running)",
+                    exe->path, pid);
         }
     } else {
         g_debug("Child process detected: %s (pid %d, parent %d)",
