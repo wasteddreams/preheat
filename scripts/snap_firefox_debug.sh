@@ -64,23 +64,41 @@ echo ""
 echo -e "${BLUE}[Phase 2] Firefox Process Detection${NC}"
 echo "$SUBDIV"
 
-FIREFOX_PIDS=$(pgrep -d ' ' firefox 2>/dev/null || true)
+# Find actual Firefox processes (not this script!)
+# We look for processes with /firefox or firefox-bin in their cmdline
+get_real_firefox_pids() {
+    local pids=""
+    for pid in $(ls /proc 2>/dev/null | grep -E '^[0-9]+$'); do
+        if [[ -f "/proc/$pid/cmdline" ]]; then
+            local cmd=$(cat "/proc/$pid/cmdline" 2>/dev/null | tr '\0' ' ')
+            # Match actual firefox binary paths, exclude this script
+            if echo "$cmd" | grep -qE '/firefox[^_]|firefox-bin|firefox-esr' 2>/dev/null; then
+                if ! echo "$cmd" | grep -q "snap_firefox_debug" 2>/dev/null; then
+                    pids="$pids $pid"
+                fi
+            fi
+        fi
+    done
+    echo $pids
+}
+
+FIREFOX_PIDS=$(get_real_firefox_pids)
 if [[ -z "$FIREFOX_PIDS" ]]; then
     echo -e "${YELLOW}⚠ Firefox not running. Starting Firefox...${NC}"
     nohup firefox &>/dev/null &
     sleep 3
-    FIREFOX_PIDS=$(pgrep -d ' ' firefox 2>/dev/null || true)
+    FIREFOX_PIDS=$(get_real_firefox_pids)
 fi
 
 if [[ -z "$FIREFOX_PIDS" ]]; then
-    echo -e "${RED}✗ Failed to start Firefox${NC}"
+    echo -e "${RED}✗ Failed to find Firefox processes${NC}"
+    echo "  Make sure Firefox is running and try again."
     exit 1
 fi
 
-# Get the main firefox process (usually lowest PID or parent)
-MAIN_PID=$(pgrep -n firefox 2>/dev/null || echo "")
-echo -e "${GREEN}✓ Firefox running with PIDs: $FIREFOX_PIDS${NC}"
-echo -e "  Main PID (newest): $MAIN_PID"
+# Count and display
+FIREFOX_COUNT=$(echo $FIREFOX_PIDS | wc -w)
+echo -e "${GREEN}✓ Found $FIREFOX_COUNT Firefox process(es): $FIREFOX_PIDS${NC}"
 
 echo ""
 
@@ -90,8 +108,8 @@ echo ""
 echo -e "${BLUE}[Phase 3] /proc Access Tests (Root Cause Verification)${NC}"
 echo "$SUBDIV"
 
-# Test ALL Firefox PIDs (oldest first - these are more stable parent processes)
-ALL_PIDS=$(pgrep firefox 2>/dev/null | sort -n | head -5)
+# Test Firefox PIDs found in Phase 2 (oldest first for stability)
+ALL_PIDS=$(echo $FIREFOX_PIDS | tr ' ' '\n' | sort -n | head -5)
 echo -e "Testing PIDs (oldest first): $ALL_PIDS"
 echo ""
 
