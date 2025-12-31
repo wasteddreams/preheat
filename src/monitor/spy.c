@@ -604,6 +604,18 @@ kp_spy_scan(gpointer data)
     state_changed_exes = new_running_exes = NULL;
     new_exes = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
+    /* CRITICAL: Clean up exited PIDs BEFORE processing new processes.
+     * This ensures that when user restarts an app, old PID entries are cleared
+     * first, allowing the new instance to be properly counted as a new launch.
+     * If we clean up after, the old PIDs would block new launch detection. */
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, kp_state->exes);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+        kp_exe_t *exe = (kp_exe_t *)value;
+        clean_exited_pids(exe);
+    }
+
     /* Mark each running exe with fresh timestamp */
     kp_proc_foreach(running_process_callback_wrapper, data);
     kp_state->last_running_timestamp = kp_state->time;
@@ -611,14 +623,11 @@ kp_spy_scan(gpointer data)
     /* Figure out who's not running by checking their timestamp */
     g_slist_foreach(kp_state->running_exes, already_running_exe_callback_wrapper, data);
 
-    /* Update weights for running processes, then clean up exited ones */
-    GHashTableIter iter;
-    gpointer key, value;
+    /* Update weights for running processes */
     g_hash_table_iter_init(&iter, kp_state->exes);
     while (g_hash_table_iter_next(&iter, &key, &value)) {
         kp_exe_t *exe = (kp_exe_t *)value;
         update_running_weights(exe);  /* Incremental weight update */
-        clean_exited_pids(exe);
     }
 
     g_slist_free(kp_state->running_exes);
