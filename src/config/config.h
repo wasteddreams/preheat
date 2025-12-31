@@ -44,7 +44,10 @@ typedef struct _kp_conf_t
         int memtotal;           /* % of total memory */
         int memfree;            /* % of free memory */
         int memcached;          /* % of cached memory */
+        
+        int hitstats_window;    /* Hit/miss detection window (seconds) */
     } model;
+
 
     /* [system] section - system behavior */
     struct _conf_system {

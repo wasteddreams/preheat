@@ -65,6 +65,11 @@ confkey(model,	integer,	memtotal,	    -10,	signed_integer_percent)
 confkey(model,	integer,	memfree,	     50,	signed_integer_percent)
 confkey(model,	integer,	memcached,	      0,	signed_integer_percent)
 
+/* hitstats_window: Sliding window (seconds) for hit/miss detection.
+ *                  A launch is a "hit" if app was preloaded within this window.
+ *                  Default: 3600 (1 hour). Range: 60-86400 */
+confkey(model,	integer,	hitstats_window,   3600,	seconds)
+
 /* [system] section - Controls daemon behavior and I/O strategy */
 
 /* doscan: Enable /proc filesystem scanning to discover running processes */

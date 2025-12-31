@@ -37,7 +37,7 @@
  *
  * DATA STRUCTURES:
  *   - app_launches: GHashTable<app_name, launch_count>
- *   - app_preloaded: GHashTable<app_name, is_preloaded>
+ *   - preload_times: GHashTable<app_name, preload_timestamp>
  *
  * =============================================================================
  */
@@ -74,8 +74,11 @@ static struct {
 
     /* Per-app tracking (simple hash) */
     GHashTable *app_launches;   /* app_name -> launch_count */
-    GHashTable *app_preloaded;  /* app_name -> is_preloaded */
+    GHashTable *preload_times;  /* app_name -> preload_timestamp (time_t) */
     GHashTable *app_pools;      /* app_name -> app_pool_info_t* */
+    
+    /* Hit/miss sliding window (seconds) - default 1 hour */
+    int hitstats_window;
 } stats = {0};
 
 /**
@@ -90,8 +93,15 @@ kp_stats_init(void)
     stats.hits = 0;
     stats.misses = 0;
 
+    /* Use configured window or default to 1 hour */
+    extern kp_conf_t kp_conf[1];
+    stats.hitstats_window = kp_conf->model.hitstats_window > 0 
+                            ? kp_conf->model.hitstats_window 
+                            : 3600;
+
+
     stats.app_launches = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-    stats.app_preloaded = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    stats.preload_times = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     stats.app_pools = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, 
                                              (GDestroyNotify)g_free);
 
@@ -287,8 +297,11 @@ kp_stats_record_preload(const char *app_path)
     name = get_app_name(app_path);
     stats.preloads_total++;
 
-    /* Mark as preloaded */
-    g_hash_table_replace(stats.app_preloaded, g_strdup(name), GINT_TO_POINTER(1));
+    /* Record preload timestamp for sliding window hit detection */
+    time_t now = time(NULL);
+    g_hash_table_replace(stats.preload_times, g_strdup(name), GSIZE_TO_POINTER((gsize)now));
+    
+    g_debug("Stats: Preloaded %s at time %ld", name, (long)now);
 }
 
 /**
@@ -370,11 +383,30 @@ gboolean
 kp_stats_is_app_preloaded(const char *app_path)
 {
     const char *name;
+    gpointer preload_time_ptr;
+    time_t preload_time, now, elapsed;
 
     if (!stats.initialized || !app_path) return FALSE;
 
     name = get_app_name(app_path);
-    return g_hash_table_contains(stats.app_preloaded, name);
+    
+    /* Check if app was preloaded */
+    preload_time_ptr = g_hash_table_lookup(stats.preload_times, name);
+    if (!preload_time_ptr) {
+        return FALSE;  /* Never preloaded */
+    }
+    
+    /* Check if preload is within sliding window */
+    preload_time = (time_t)GPOINTER_TO_SIZE(preload_time_ptr);
+    now = time(NULL);
+    elapsed = now - preload_time;
+    
+    if (elapsed < 0) {
+        elapsed = 0;  /* Clock skew protection */
+    }
+    
+    /* Return TRUE only if within the sliding window */
+    return elapsed < stats.hitstats_window;
 }
 
 /**
@@ -436,7 +468,6 @@ kp_stats_get_summary(kp_stats_summary_t *summary)
         g_hash_table_iter_init(&iter, kp_state->exes);
         while (g_hash_table_iter_next(&iter, &key, &value)) {
             kp_exe_t *exe = (kp_exe_t *)value;
-            const char *name = get_app_name(exe->path);
             
             /* Count by pool */
             if (exe->pool == POOL_PRIORITY) {
@@ -445,8 +476,8 @@ kp_stats_get_summary(kp_stats_summary_t *summary)
                 summary->observation_pool_count++;
             }
             
-            /* Only accumulate size for apps that are currently preloaded */
-            if (g_hash_table_contains(stats.app_preloaded, name)) {
+            /* Only accumulate size for apps that are currently preloaded (within window) */
+            if (kp_stats_is_app_preloaded(exe->path)) {
                 summary->total_preloaded_bytes += exe->size;
             }
         }
@@ -530,7 +561,7 @@ kp_stats_get_summary(kp_stats_summary_t *summary)
         summary->top_apps[i].launches = ac->raw_launches;  /* Use raw count for display */
         summary->top_apps[i].weighted_launches = ac->weighted_launches;
         summary->top_apps[i].preloaded =
-            g_hash_table_contains(stats.app_preloaded, ac->name);
+            kp_stats_is_app_preloaded(ac->name);
         summary->top_apps[i].pool = POOL_PRIORITY;
         summary->top_apps[i].promotion_reason = 
             pool_info ? g_strdup(pool_info->reason) : g_strdup("unknown");
@@ -680,9 +711,9 @@ kp_stats_free(void)
         stats.app_launches = NULL;
     }
 
-    if (stats.app_preloaded) {
-        g_hash_table_destroy(stats.app_preloaded);
-        stats.app_preloaded = NULL;
+    if (stats.preload_times) {
+        g_hash_table_destroy(stats.preload_times);
+        stats.preload_times = NULL;
     }
 
     /* B011 FIX: Also free app_pools */
