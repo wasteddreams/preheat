@@ -134,6 +134,23 @@ resolve_exec_path(const char *exec_line)
     }
 
     binary = argv[0];
+    
+    /* Handle "env VAR=value ... /path/to/binary" pattern
+     * Many snap .desktop files use: env BAMF_DESKTOP_FILE_HINT=... /snap/bin/app
+     * Skip 'env' and any VAR=value arguments to find the actual binary */
+    if (strcmp(binary, "env") == 0) {
+        int i = 1;
+        while (argv[i]) {
+            /* Skip VAR=value arguments (contain = but don't start with /) */
+            if (strchr(argv[i], '=') != NULL && argv[i][0] != '/') {
+                i++;
+                continue;
+            }
+            /* Found what looks like the actual binary */
+            binary = argv[i];
+            break;
+        }
+    }
 
     /* Resolve to absolute path */
     if (binary[0] == '/') {
