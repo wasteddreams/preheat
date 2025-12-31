@@ -113,8 +113,7 @@ sudo preheat-ctl promote code   # Always preload this app
 
 ## Project Status
 
-Preheat is stable for daily use and actively tested on Kali and Debian-based systems.  
-APIs and config formats may evolve before v2.0.
+Preheat is stable for daily use and actively tested on Kali and Debian-based systems.
 
 ---
 

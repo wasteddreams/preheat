@@ -249,15 +249,20 @@ cmd_stats_verbose(void)
     
     printf("  Performance:\n");
     printf("    Preloads:     %s total\n", preloads_fmt);
-    printf("    Hits:         %s (%.1f%%)\n", hits_fmt, hit_rate);
-    printf("    Misses:       %s (%.1f%%)\n", misses_fmt, 100.0 - hit_rate);
-    printf("    Efficiency:   ");
     
-    if (hit_rate >= 70.0) printf("EXCELLENT\n\n");
-    else if (hit_rate >= 50.0) printf("GOOD\n\n");
-    else if (hit_rate >= 30.0) printf("LEARNING\n\n");
-    else if (hits + misses > 0) printf("EARLY STAGE\n\n");
-    else printf("NO DATA\n\n");
+    if (hits + misses > 0) {
+        printf("    Hits:         %s (%.1f%%)\n", hits_fmt, hit_rate);
+        printf("    Misses:       %s (%.1f%%)\n", misses_fmt, 100.0 - hit_rate);
+        printf("    Efficiency:   ");
+        if (hit_rate >= 70.0) printf("EXCELLENT\n\n");
+        else if (hit_rate >= 50.0) printf("GOOD\n\n");
+        else if (hit_rate >= 30.0) printf("LEARNING\n\n");
+        else printf("EARLY STAGE\n\n");
+    } else {
+        printf("    Hits:         %s (N/A)\n", hits_fmt);
+        printf("    Misses:       %s (N/A)\n", misses_fmt);
+        printf("    Efficiency:   NO DATA (launch apps to collect stats)\n\n");
+    }
 
     printf("  Memory:\n");
     printf("    Total Preloaded:  %zu MB\n", total_mb);

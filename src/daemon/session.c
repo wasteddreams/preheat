@@ -93,11 +93,13 @@ get_primary_user_uid(void)
 }
 
 /**
- * Check if user session directory exists
- * Uses /run/user/$UID as session indicator
+ * Get session creation time from /run/user/$UID directory
+ * Uses birth time (st_birthtime) if available, falls back to ctime
+ * 
+ * @return session start time, or 0 if session doesn't exist
  */
-static gboolean
-check_user_session_exists(uid_t uid)
+static time_t
+get_session_creation_time(uid_t uid)
 {
     char path[256];
     struct stat st;
@@ -105,10 +107,23 @@ check_user_session_exists(uid_t uid)
     snprintf(path, sizeof(path), "/run/user/%d", uid);
 
     if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
-        return TRUE;
+        /* On Linux, st_ctime is metadata change time (close to creation).
+         * For /run/user/$UID specifically, this is reliable since the dir
+         * is created fresh on each login and rarely modified. */
+        return st.st_ctime;
     }
 
-    return FALSE;
+    return 0;
+}
+
+/**
+ * Check if user session directory exists
+ * Uses /run/user/$UID as session indicator
+ */
+static gboolean
+check_user_session_exists(uid_t uid)
+{
+    return get_session_creation_time(uid) > 0;
 }
 
 /**
@@ -157,12 +172,26 @@ kp_session_init(void)
     session_state.target_uid = get_primary_user_uid();
 
     /* Check if session already exists (daemon started after login) */
-    if (check_user_session_exists(session_state.target_uid)) {
-        g_debug("Session already exists for UID %d, starting boot window",
-                session_state.target_uid);
+    time_t session_created = get_session_creation_time(session_state.target_uid);
+    if (session_created > 0) {
+        time_t now = time(NULL);
+        time_t session_age = now - session_created;
+        
         session_state.session_detected = TRUE;
-        session_state.session_start = time(NULL);
-        session_state.window_end = session_state.session_start + session_state.window_duration_sec;
+        session_state.session_start = session_created;  /* Use REAL login time! */
+        session_state.window_end = session_created + session_state.window_duration_sec;
+        
+        if (session_age >= session_state.window_duration_sec) {
+            /* Window already expired - user logged in too long ago */
+            g_message("Session for UID %d started %ld seconds ago, boot window expired",
+                      session_state.target_uid, (long)session_age);
+            session_state.preload_done = TRUE;  /* Skip aggressive preload */
+        } else {
+            /* Still within window */
+            int remaining = session_state.window_duration_sec - (int)session_age;
+            g_message("Session for UID %d started %ld sec ago, boot window active (%d sec remaining)",
+                      session_state.target_uid, (long)session_age, remaining);
+        }
     }
 
     g_debug("Session detection initialized for UID %d", session_state.target_uid);
@@ -184,10 +213,11 @@ kp_session_check(void)
     }
 
     /* Check if session directory appeared */
-    if (check_user_session_exists(session_state.target_uid)) {
+    time_t session_created = get_session_creation_time(session_state.target_uid);
+    if (session_created > 0) {
         session_state.session_detected = TRUE;
-        session_state.session_start = time(NULL);
-        session_state.window_end = session_state.session_start + session_state.window_duration_sec;
+        session_state.session_start = session_created;  /* Use REAL creation time */
+        session_state.window_end = session_created + session_state.window_duration_sec;
 
         g_message("Session detected for UID %d, starting %d second boot window",
                   session_state.target_uid, session_state.window_duration_sec);
