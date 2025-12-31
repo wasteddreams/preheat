@@ -283,11 +283,33 @@ track_process_start(kp_exe_t *exe, pid_t pid, pid_t parent_pid)
             ssize_t len = readlink(parent_exe_link, parent_exe_path, sizeof(parent_exe_path) - 1);
             if (len > 0) {
                 parent_exe_path[len] = '\0';
-                /* If parent is same executable, this is a child process */
-                if (strcmp(parent_exe_path, exe->path) == 0) {
-                    is_child_of_self = TRUE;
-                    g_debug("Child process detected via parent match: %s (pid %d, parent %d)",
-                            exe->path, pid, parent_pid);
+                
+                /* Resolve symlinks for both paths before comparing.
+                 * /usr/bin/firefox-esr → /usr/lib/firefox-esr/firefox-esr
+                 * Without this, symlink and resolved path won't match. */
+                char exe_real[PATH_MAX];
+                char parent_real[PATH_MAX];
+                
+                const char *exe_resolved = realpath(exe->path, exe_real);
+                const char *parent_resolved = realpath(parent_exe_path, parent_real);
+                
+                if (exe_resolved && parent_resolved) {
+                    if (strcmp(exe_resolved, parent_resolved) == 0) {
+                        is_child_of_self = TRUE;
+                        g_debug("Child process detected via realpath match: %s (pid %d, parent %d)",
+                                exe->path, pid, parent_pid);
+                    }
+                } else {
+                    /* Fallback: compare basenames if realpath fails */
+                    char *exe_base = g_path_get_basename(exe->path);
+                    char *parent_base = g_path_get_basename(parent_exe_path);
+                    if (strcmp(exe_base, parent_base) == 0) {
+                        is_child_of_self = TRUE;
+                        g_debug("Child process detected via basename match: %s (pid %d, parent %d)",
+                                exe->path, pid, parent_pid);
+                    }
+                    g_free(exe_base);
+                    g_free(parent_base);
                 }
             }
         }
