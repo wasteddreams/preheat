@@ -438,6 +438,12 @@ read_family(read_context_t *rc)
         return;
     }
     
+    /* M-3 FIX: Validate family_id is non-empty */
+    if (!family_id[0]) {
+        rc->errmsg = READ_SYNTAX_ERROR;
+        return;
+    }
+    
     family = kp_family_new(family_id, (discovery_method_t)method_int);
     
     /* B014 FIX: strtok_r is reentrant */

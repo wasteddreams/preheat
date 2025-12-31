@@ -297,7 +297,7 @@ void
 kp_prophet_readahead(GPtrArray *maps_arr)
 {
     int i;
-    int memavail, memavailtotal; /* in kilobytes */
+    long memavail, memavailtotal; /* in kilobytes - use long for 32-bit safety */
     kp_memory_t memstat;
     kp_map_t *map;
 
@@ -330,7 +330,7 @@ kp_prophet_readahead(GPtrArray *maps_arr)
         }
     }
 
-    g_debug("%dkb available for preloading, using %dkb of it",
+    g_debug("%ldkb available for preloading, using %ldkb of it",
             memavailtotal, memavailtotal - memavail);
 
     if (i) {
@@ -380,10 +380,13 @@ load_maps_for_exe(kp_exe_t *exe)
         return FALSE;
     }
     
-    /* Create exemap and add to exe */
+    /* Create exemap and add to exe.
+     * NOTE: kp_exe_map_new() takes ownership of map via kp_map_ref(),
+     * but if it fails, we must free the map ourselves. */
     exemap = kp_exe_map_new(exe, map);
     if (!exemap) {
         g_warning("Failed to create exemap for manual app: %s", exe->path);
+        kp_map_free(map);  /* FIX: Prevent memory leak on failure */
         return FALSE;
     }
     
