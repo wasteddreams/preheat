@@ -269,11 +269,34 @@ track_process_start(kp_exe_t *exe, pid_t pid, pid_t parent_pid)
      * 
      * For apt-installed apps, is_user_initiated() already returns TRUE
      * when launched from terminal/desktop, so this fallback never runs.
+     *
+     * IMPORTANT: Skip fallback if parent is the SAME executable - these are
+     * child processes (e.g., Firefox content processes), not new user launches.
      */
     if (!proc_info->user_initiated && kp_desktop_has_file(exe->path)) {
-        proc_info->user_initiated = TRUE;
-        g_debug("Desktop app fallback: %s (pid %d, parent was container)",
-                exe->path, pid);
+        /* Check if parent is the same executable (child of self) */
+        gboolean is_child_of_self = FALSE;
+        if (parent_pid > 1) {
+            char parent_exe_link[64];
+            char parent_exe_path[PATH_MAX];
+            snprintf(parent_exe_link, sizeof(parent_exe_link), "/proc/%d/exe", parent_pid);
+            ssize_t len = readlink(parent_exe_link, parent_exe_path, sizeof(parent_exe_path) - 1);
+            if (len > 0) {
+                parent_exe_path[len] = '\0';
+                /* If parent is same executable, this is a child process */
+                if (strcmp(parent_exe_path, exe->path) == 0) {
+                    is_child_of_self = TRUE;
+                    g_debug("Child process detected via parent match: %s (pid %d, parent %d)",
+                            exe->path, pid, parent_pid);
+                }
+            }
+        }
+        
+        if (!is_child_of_self) {
+            proc_info->user_initiated = TRUE;
+            g_debug("Desktop app fallback: %s (pid %d, parent was container)",
+                    exe->path, pid);
+        }
     }
     
     /* Only increment raw launch count for user-initiated processes.
