@@ -12,10 +12,14 @@
  * 2. Directory scan (for dlopen'd libraries like Firefox's libxul.so)
  */
 
+/* Feature test macro for popen/pclose - must be before any includes */
+#define _GNU_SOURCE
+
 #include "lib_scanner.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>  /* PATH_MAX */
 #include <dirent.h>
 #include <sys/stat.h>
 #include <glib.h>
