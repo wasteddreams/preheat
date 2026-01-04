@@ -32,6 +32,7 @@
 #include "common.h"
 #include "../utils/logging.h"
 #include "../config/config.h"
+#include "../config/blacklist.h"
 #include "../daemon/pause.h"
 #include "../daemon/session.h"
 #include "state.h"
@@ -147,53 +148,84 @@ void kp_state_load(const char *statefile)
 
 /**
  * Register manual apps that aren't already tracked
+ * Also update pool status for existing apps based on config files
  */
 void
 kp_state_register_manual_apps(void)
 {
     char **app_path;
     int registered = 0;
-    int already_tracked = 0;
+    int promoted = 0;
+    int already_priority = 0;
+    int demoted = 0;
     int total = 0;
     
-    if (!kp_conf->system.manual_apps_loaded ||
-        kp_conf->system.manual_apps_count == 0) {
-        g_debug("No manual apps configured");
-        return;
-    }
+    g_message("=== Syncing pool status from config ===");
     
-    g_message("=== Registering manual apps ===");
-    
-    for (app_path = kp_conf->system.manual_apps_loaded; *app_path; app_path++) {
-        kp_exe_t *exe;
-        total++;
+    /* Phase 1: Process manual apps list (promote to priority pool) */
+    if (kp_conf->system.manual_apps_loaded &&
+        kp_conf->system.manual_apps_count > 0) {
         
-        exe = g_hash_table_lookup(kp_state->exes, *app_path);
-        if (exe) {
-            g_debug("Manual app already tracked: %s", *app_path);
-            already_tracked++;
-            continue;
+        for (app_path = kp_conf->system.manual_apps_loaded; *app_path; app_path++) {
+            kp_exe_t *exe;
+            total++;
+            
+            exe = g_hash_table_lookup(kp_state->exes, *app_path);
+            if (exe) {
+                /* App already tracked - check if pool needs update */
+                if (exe->pool != POOL_PRIORITY) {
+                    g_message("Promoting existing app to priority: %s", *app_path);
+                    exe->pool = POOL_PRIORITY;
+                    kp_state->dirty = TRUE;
+                    promoted++;
+                } else {
+                    g_debug("Manual app already priority: %s", *app_path);
+                    already_priority++;
+                }
+                continue;
+            }
+            
+            /* New app - register it */
+            exe = kp_exe_new(*app_path, FALSE, NULL);
+            if (!exe) {
+                g_warning("Failed to create exe for manual app: %s", *app_path);
+                continue;
+            }
+            
+            exe->pool = POOL_PRIORITY;
+            kp_state_register_exe(exe, FALSE);
+            registered++;
+            
+            g_message("Registered new manual app: %s", *app_path);
         }
+    }
+    
+    /* Phase 2: Process blacklist (demote to observation pool) */
+    if (kp_blacklist_count() > 0) {
+        GHashTableIter iter;
+        gpointer key, value;
         
-        exe = kp_exe_new(*app_path, FALSE, NULL);
-        if (!exe) {
-            g_warning("Failed to create exe for manual app: %s", *app_path);
-            continue;
+        g_hash_table_iter_init(&iter, kp_state->exes);
+        while (g_hash_table_iter_next(&iter, &key, &value)) {
+            kp_exe_t *exe = (kp_exe_t *)value;
+            
+            if (kp_blacklist_contains(exe->path)) {
+                if (exe->pool != POOL_OBSERVATION) {
+                    g_message("Demoting blacklisted app to observation: %s", exe->path);
+                    exe->pool = POOL_OBSERVATION;
+                    kp_state->dirty = TRUE;
+                    demoted++;
+                }
+            }
         }
-        
-        kp_state_register_exe(exe, FALSE);
-        registered++;
-        
-        g_message("Registered manual app: %s", *app_path);
     }
     
-    if (registered > 0 || already_tracked > 0) {
-        g_message("Manual apps: %d registered, %d already tracked (of %d total)",
-                  registered, already_tracked, total);
-    }
-    
-    if (registered > 0) {
-        kp_state->dirty = TRUE;
+    /* Log summary */
+    if (registered > 0 || promoted > 0 || demoted > 0) {
+        g_message("Pool sync: %d new, %d promoted, %d demoted, %d unchanged",
+                  registered, promoted, demoted, already_priority);
+    } else {
+        g_debug("Pool sync: no changes needed");
     }
 }
 

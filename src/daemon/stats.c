@@ -187,19 +187,38 @@ get_app_name(const char *path)
 
 /**
  * Check if app is in manual apps list
+ * Compares both original and canonicalized paths to handle symlinks
  */
 static gboolean
 is_manual_app(const char *app_path)
 {
     extern kp_conf_t kp_conf[1];
+    char resolved_app[PATH_MAX];
+    char resolved_manual[PATH_MAX];
     
-    if (!kp_conf->system.manual_apps_loaded) {
+    if (!kp_conf->system.manual_apps_loaded || !app_path) {
         return FALSE;
     }
     
+    /* Canonicalize the input path for comparison */
+    const char *canonical_app = app_path;
+    if (realpath(app_path, resolved_app)) {
+        canonical_app = resolved_app;
+    }
+    
     for (char **p = kp_conf->system.manual_apps_loaded; *p; p++) {
+        /* Direct match */
         if (strcmp(*p, app_path) == 0) {
+            g_message("is_manual_app: DIRECT MATCH '%s'", app_path);
             return TRUE;
+        }
+        
+        /* Canonicalized match - compare canonical forms of both paths */
+        if (realpath(*p, resolved_manual)) {
+            if (strcmp(resolved_manual, canonical_app) == 0) {
+                g_message("is_manual_app: CANONICAL MATCH '%s' = '%s'", app_path, resolved_manual);
+                return TRUE;
+            }
         }
     }
     

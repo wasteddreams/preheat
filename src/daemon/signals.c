@@ -85,6 +85,10 @@ sig_handler_sync(gpointer data)
         kp_blacklist_reload();
         kp_state_register_manual_apps();
         kp_log_reopen(logfile);
+        /* Save state immediately so preheat-ctl explain sees updated pool */
+        state_saving = 1;
+        kp_state_save(statefile);
+        state_saving = 0;
     }
 
     if (pending_sigusr1) {
