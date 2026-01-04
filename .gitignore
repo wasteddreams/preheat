@@ -137,6 +137,9 @@ CHANGELOG.md
 docs/STARTUP_TIME_MEASUREMENT.md
 docs/SNAP_FIREFOX_DEBUG_NOTES.md
 docs/SNAP_FIREFOX_ROOT_CAUSE_ANALYSIS.md
+docs/PLANNED_hit_miss_tracking.md
+docs/SNAP_FIREFOX_ISSUE_CONTEXT.md
+docs/UBUNTU_VM_TEST_FINDINGS.md
 test_pid_persistence.sh
 tests/
 scripts/benchmark.sh
