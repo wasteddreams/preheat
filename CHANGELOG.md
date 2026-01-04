@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.1] - 2026-01-03
 
-### 🛡️ Security Fixes
+### Security Fixes
 
 #### Critical: Command Injection Vulnerability (L-1)
 - **File:** `src/utils/lib_scanner.c`
@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fix:** All executable paths are now escaped using `g_shell_quote()` before passing to shell
 - **Additional Hardening:** `ldd` is now invoked via absolute path `/usr/bin/ldd` to prevent PATH manipulation attacks
 
-### 🐛 Bug Fixes
+### Bug Fixes
 
 #### High Severity
 
@@ -105,14 +105,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Issue:** Checked `pool == 1` (priority) but function is for observation pool
 - **Fix:** Changed to `pool == 0`
 
-### ✨ New Features
+### New Features
 
 **SI-1: Single-Instance Protection**
 - **File:** `src/daemon/main.c`
 - **Feature:** Daemon now uses `flock()` on `/var/run/preheat.pid` to prevent multiple instances
 - **Behavior:** Second instance immediately exits with clear error message showing existing PID
 
-### 🔒 Memory Safety Audit (2026-01-03)
+### Memory Safety Audit (2026-01-03)
 
 A comprehensive memory safety audit was conducted using cppcheck, flawfinder, and AddressSanitizer.
 
@@ -131,7 +131,7 @@ A comprehensive memory safety audit was conducted using cppcheck, flawfinder, an
 - **Issue:** Command-line argument strings not freed on exit (281 bytes)
 - **Fix:** Added `g_free()` calls for conffile, statefile, logfile before exit
 
-### 📊 Summary
+### Summary
 
 | Severity | Count |
 |----------|-------|
@@ -145,11 +145,11 @@ A comprehensive memory safety audit was conducted using cppcheck, flawfinder, an
 
 ## [1.0.0] - 2025-12-25
 
-### 🎉 Initial Stable Release
+### Initial Stable Release
 
 The first production-ready release of Preheat, an adaptive readahead daemon for Linux that learns user behavior and preloads applications to reduce cold-start times by 30-60%.
 
-### ✨ Features
+### Features
 
 #### Running Process Persistence
 - State file persists running process information across daemon restarts
@@ -213,7 +213,7 @@ The first production-ready release of Preheat, an adaptive readahead daemon for 
 - `reload` - Reload configuration without restart
 - `pause/resume` - Temporarily disable/enable preloading
 
-### 🔧 Configuration
+### Configuration
 
 New configuration options in `/etc/preheat.conf`:
 - `enable_two_tier` - Enable/disable pool separation
@@ -227,7 +227,7 @@ New configuration options in `/etc/preheat.conf`:
 - `enable_families` - Enable application family grouping
 - `autosave` - State file save interval (default: 300s for frequent persistence)
 
-### 🐛 Bug Fixes
+### Bug Fixes
 
 #### Security Fixes
 - **B013/B016 (HIGH)**: Fixed buffer overflow in `/proc/stat` parsing - malicious process names could overflow 256-byte buffer
@@ -255,14 +255,14 @@ New configuration options in `/etc/preheat.conf`:
 - Fixed setup.sh dependency auto-installation bug
 - Fixed error path cleanup in pattern matching
 
-### 🛡️ Security
+### Security
 
 - Trusted path validation for all file operations
 - TOCTOU (time-of-check-time-of-use) prevention in preloading
 - Secure state file permissions (0600)
 - Input validation on all CLI commands
 
-### 📚 Documentation
+### Documentation
 
 - Comprehensive README with quick start guide
 - Detailed API reference for all CLI commands
@@ -271,14 +271,14 @@ New configuration options in `/etc/preheat.conf`:
 - Troubleshooting guide for common issues
 - Man pages: `preheat(8)`, `preheat.conf(5)`, `preheat-ctl(1)`
 
-### ⚡ Performance
+### Performance
 
 - ~5-10 MB memory footprint
 - <1% CPU overhead during normal operation
 - 30-60% reduction in cold-start times for frequent applications
 - Efficient state serialization with CRC32 validation
 
-### 📦 Installation
+### Installation
 
 One-liner install:
 ```bash
@@ -291,7 +291,7 @@ preheat-ctl status
 preheat-ctl health
 ```
 
-### 🙏 Acknowledgments
+### Acknowledgments
 
 - Inspired by the original [preload](https://sourceforge.net/projects/preload/) project
 - Built with [Antigravity](https://antigravity.google/) using Claude Opus 4.5 Thinking and Claude Sonnet 4.5 Thinking
