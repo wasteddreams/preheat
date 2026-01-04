@@ -37,8 +37,10 @@ It started as something I built for my own setup, but it turned out useful enoug
 ## Quick Start
 
 ```bash
-# One-liner install
-curl -fsSL https://raw.githubusercontent.com/wasteddreams/preheat-linux/main/setup.sh | sudo bash
+# Clone and install
+git clone https://github.com/wasteddreams/preheat-linux.git
+cd preheat-linux
+sudo ./setup.sh install
 
 # Verify
 preheat-ctl status

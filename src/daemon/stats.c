@@ -209,14 +209,12 @@ is_manual_app(const char *app_path)
     for (char **p = kp_conf->system.manual_apps_loaded; *p; p++) {
         /* Direct match */
         if (strcmp(*p, app_path) == 0) {
-            g_message("is_manual_app: DIRECT MATCH '%s'", app_path);
             return TRUE;
         }
         
         /* Canonicalized match - compare canonical forms of both paths */
         if (realpath(*p, resolved_manual)) {
             if (strcmp(resolved_manual, canonical_app) == 0) {
-                g_message("is_manual_app: CANONICAL MATCH '%s' = '%s'", app_path, resolved_manual);
                 return TRUE;
             }
         }

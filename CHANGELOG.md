@@ -102,8 +102,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **CLI-1: show-hidden Showed Wrong Pool**
 - **File:** `tools/ctl_cmd_apps.c:421`
-- **Issue:** Checked `pool == 1` (priority) but function is for observation pool
-- **Fix:** Changed to `pool == 0`
+- **Issue:** Checked `pool == 0` but POOL_OBSERVATION=1, so showed priority pool instead
+- **Fix:** Changed to `pool == 1` (matches POOL_OBSERVATION enum value)
 
 ### New Features
 
@@ -280,9 +280,10 @@ New configuration options in `/etc/preheat.conf`:
 
 ### Installation
 
-One-liner install:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wasteddreams/preheat-linux/main/setup.sh | sudo bash
+git clone https://github.com/wasteddreams/preheat-linux.git
+cd preheat-linux
+sudo ./setup.sh install
 ```
 
 Verify installation:

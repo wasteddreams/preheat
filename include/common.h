@@ -66,9 +66,14 @@
  * - POOL_PRIORITY: User applications shown in stats, actively preloaded
  * - POOL_OBSERVATION: System processes tracked for learning only
  */
+/*
+ * IMPORTANT: Do NOT change these values! They are persisted in state files.
+ * POOL_PRIORITY = 0 (user apps, actively preloaded)
+ * POOL_OBSERVATION = 1 (system processes, tracked only)
+ */
 typedef enum {
-    POOL_PRIORITY,      /* User apps - shown in stats, actively preloaded */
-    POOL_OBSERVATION    /* System processes - tracked for Markov learning only */
+    POOL_PRIORITY = 0,      /* User apps - shown in stats, actively preloaded */
+    POOL_OBSERVATION = 1    /* System processes - tracked for Markov learning only */
 } pool_type_t;
 
 /*
